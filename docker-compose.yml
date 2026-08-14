@@ -1,8 +1,9 @@
+# Self-host (no hot reload). For development with Fast Refresh: npm run docker:dev
 services:
   watchirr:
     build: .
     ports:
-      - "3000:3000"
+      - "3001:3000"
     volumes:
       - watchirr-data:/data
     environment:

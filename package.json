@@ -3,10 +3,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --port 3001 --hostname 0.0.0.0",
+    "dev:docker": "next dev --port 3001 --hostname 0.0.0.0 --webpack",
+    "docker:dev": "docker compose -f docker-compose.dev.yml up --build",
     "build": "next build",
-    "start": "next start",
-    "check": "node --test --experimental-strip-types lib/auth.check.ts"
+    "start": "next start --port 3001",
+    "check": "node --test --experimental-strip-types lib/auth.check.ts lib/locale.check.ts"
   },
   "dependencies": {
     "next": "^16.3.1",

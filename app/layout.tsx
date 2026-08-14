@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Instrument_Serif, Outfit } from "next/font/google";
 import type { ReactNode } from "react";
+import { currentLocale } from "@/lib/http";
 import "./globals.css";
 
 const serif = Instrument_Serif({
@@ -23,9 +24,10 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const locale = await currentLocale();
   return (
-    <html lang="en-US" className={`${serif.variable} ${sans.variable}`}>
+    <html lang={locale} className={`${serif.variable} ${sans.variable}`}>
       <body className={sans.className}>{children}</body>
     </html>
   );

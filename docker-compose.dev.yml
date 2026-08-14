@@ -1,0 +1,26 @@
+# Local development with hot reload. Use: npm run docker:dev
+# Production self-host stays `docker compose up --build`.
+services:
+  watchirr:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3001:3001"
+    volumes:
+      - .:/app
+      - watchirr-dev-modules:/app/node_modules
+      - watchirr-dev-next:/app/.next
+      - watchirr-data:/data
+    environment:
+      DATA_DIR: /data
+      PORT: "3001"
+      HOSTNAME: 0.0.0.0
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+    command: ["sh", "-c", "npm install && npm run dev:docker"]
+
+volumes:
+  watchirr-data:
+  watchirr-dev-modules:
+  watchirr-dev-next:
