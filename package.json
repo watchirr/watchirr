@@ -8,7 +8,7 @@
     "docker:dev": "docker compose -f docker-compose.dev.yml up --build",
     "build": "next build",
     "start": "next start --port 3001",
-    "check": "node --test --experimental-strip-types lib/auth.check.ts lib/locale.check.ts"
+    "check": "node --test --experimental-strip-types lib/*.check.ts"
   },
   "dependencies": {
     "next": "^16.3.1",
