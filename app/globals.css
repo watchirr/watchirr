@@ -278,6 +278,41 @@ a {
   width: 100%;
 }
 
+.panel.settings > form:first-of-type {
+  max-width: 24rem;
+  margin-bottom: 1.5rem;
+}
+
+.settings-form {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.settings-form .ok {
+  margin: 0;
+}
+
+.settings-form .block + .block {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.settings-form .block {
+  padding: 1.1rem 1.15rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+}
+
+.settings-form .actions {
+  margin-top: 0;
+}
+
+.settings-form .span-all {
+  grid-column: 1 / -1;
+}
+
 .panel {
   max-width: 28rem;
   margin: 4rem auto;
@@ -380,6 +415,22 @@ select:focus {
   font-size: 0.9rem;
 }
 
+.paid-filter {
+  margin: 0 0 0.5rem;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .checks {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
@@ -390,6 +441,12 @@ select:focus {
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.7);
   background: rgba(255, 255, 255, 0.35);
+}
+
+.checks .muted {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 0.9rem;
 }
 
 .checks label {
@@ -467,6 +524,61 @@ select:focus {
   color: inherit;
   font-weight: 600;
   text-decoration: underline;
+}
+
+.lens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0 0 1rem;
+}
+
+.lens a {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(14, 36, 51, 0.06);
+}
+
+.lens a.on,
+.lens a[aria-current="page"] {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.75);
+}
+
+.add-form {
+  margin: 0.35rem 0 0;
+}
+
+.add-btn {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff;
+  background: var(--brand);
+  border: 0;
+  border-radius: 999px;
+  padding: 0.45rem 0.9rem;
+  cursor: pointer;
+}
+
+.add-btn:active {
+  transform: scale(0.97);
+}
+
+.sub.ok {
+  color: var(--brand-deep);
+}
+
+.sub.warn {
+  color: var(--warn);
 }
 
 .hits {
@@ -768,6 +880,10 @@ div.hit {
 
   .hit.hero .name {
     font-size: 1.35rem;
+  }
+
+  .settings-form {
+    grid-template-columns: 1fr 1fr;
   }
 }
 

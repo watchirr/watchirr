@@ -194,3 +194,54 @@ export async function personCast(
   const titles = c === "ok" && !("error" in credits) ? parseCastCredits(credits.json, CAST_CAP, filter) : [];
   return { ok: true, person, titles };
 }
+
+/** Flatrate providers in `country` that intersect Household Paid Services (ADR 0008). */
+export function flatrateCoverage(
+  json: unknown,
+  country: string,
+  paidServiceIds: number[],
+): { id: number; name: string }[] {
+  const cc = country.trim().toUpperCase();
+  if (!cc || paidServiceIds.length === 0) return [];
+  const paid = new Set(paidServiceIds);
+  const results =
+    json && typeof json === "object" && (json as { results?: unknown }).results && typeof (json as { results: unknown }).results === "object"
+      ? ((json as { results: Record<string, unknown> }).results[cc] as Record<string, unknown> | undefined)
+      : undefined;
+  const rows = results && Array.isArray(results.flatrate) ? results.flatrate : [];
+  const out: { id: number; name: string }[] = [];
+  const seen = new Set<number>();
+  for (const row of rows) {
+    if (!row || typeof row !== "object") continue;
+    const o = row as Record<string, unknown>;
+    const id = num(o.provider_id);
+    const name = str(o.provider_name);
+    if (!id || !name || !paid.has(id) || seen.has(id)) continue;
+    seen.add(id);
+    out.push({ id, name });
+  }
+  return out;
+}
+
+export type CoverageResult =
+  | { ok: true; services: { id: number; name: string }[] }
+  | { ok: false; error: SearchError };
+
+export async function titleCoverage(
+  apiKey: string,
+  title: { tmdbId: number; kind: TitleKind },
+  country: string,
+  paidServiceIds: number[],
+  get: HttpGet = defaultGet,
+): Promise<CoverageResult> {
+  if (!apiKey.trim()) return { ok: false, error: "missing-key" };
+  if (!title.tmdbId) return { ok: false, error: "failed" };
+  const path = title.kind === "movie" ? `/movie/${title.tmdbId}/watch/providers` : `/tv/${title.tmdbId}/watch/providers`;
+  const res = await get(tmdbUrl(apiKey, path, {}), { Accept: "application/json" });
+  const status = classify(res);
+  if (status !== "ok") return { ok: false, error: status };
+  return {
+    ok: true,
+    services: flatrateCoverage("error" in res ? null : res.json, country, paidServiceIds),
+  };
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import type { Messages } from "@/lib/locale";
 import type { HouseholdState } from "./actions";
 
@@ -19,6 +19,76 @@ function withSaved<T extends { id?: number; path?: string }>(items: T[], saved: 
 function keep(name: string, value: string | number | null | undefined) {
   if (value == null || value === "") return null;
   return <input type="hidden" name={name} value={value} />;
+}
+
+function PaidServices({
+  providers,
+  selected,
+  hint,
+  filterLabel,
+  filterEmpty,
+}: {
+  providers: { id: number; name: string }[];
+  selected: number[];
+  hint: string;
+  filterLabel: string;
+  filterEmpty: string;
+}) {
+  const [q, setQ] = useState("");
+  const [picked, setPicked] = useState(() => new Set(selected));
+  const needle = q.trim().toLowerCase();
+  const visible = needle
+    ? providers.filter((p) => p.name.toLowerCase().includes(needle))
+    : providers;
+  const offscreen = [...picked].filter((id) => !visible.some((p) => p.id === id));
+
+  function toggle(id: number, on: boolean) {
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  return (
+    <>
+      <p className="hint">{hint}</p>
+      <label className="sr-only" htmlFor="paid-service-filter">
+        {filterLabel}
+      </label>
+      <input
+        id="paid-service-filter"
+        className="field paid-filter"
+        type="search"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.preventDefault();
+        }}
+        placeholder={filterLabel}
+        autoComplete="off"
+      />
+      <div className="checks">
+        {visible.length === 0 ? <p className="muted">{filterEmpty}</p> : null}
+        {visible.map((p) => (
+          <label key={p.id}>
+            <input
+              type="checkbox"
+              name="paidServiceIds"
+              value={p.id}
+              checked={picked.has(p.id)}
+              onChange={(e) => toggle(p.id, e.target.checked)}
+            />
+            {p.name}
+          </label>
+        ))}
+      </div>
+      {offscreen.map((id) => (
+        <input key={`keep-${id}`} type="hidden" name="paidServiceIds" value={id} />
+      ))}
+    </>
+  );
 }
 
 function ArrPicks({
@@ -121,10 +191,10 @@ export function HouseholdForm({
   const showServices = state.providers.length > 0;
 
   return (
-    <form action={formAction} key={state.stamp} aria-busy={pending}>
+    <form className="settings-form" action={formAction} key={state.stamp} aria-busy={pending}>
       {state.saved ? <p className="ok">{t.settingsSaved}</p> : null}
 
-      <fieldset className="block">
+      <fieldset className="block span-all">
         <legend>{t.tmdbSection}</legend>
         <label htmlFor="tmdbApiKey">{t.apiKeyLabel}</label>
         <input id="tmdbApiKey" name="tmdbApiKey" className="field" type="password" autoComplete="off" defaultValue={settings.tmdbApiKey} />
@@ -161,22 +231,13 @@ export function HouseholdForm({
           keep("country", settings.country)
         )}
         {showServices ? (
-          <>
-            <p className="hint">{t.paidServicesHint}</p>
-            <div className="checks">
-              {state.providers.map((p) => (
-                <label key={p.id}>
-                  <input
-                    type="checkbox"
-                    name="paidServiceIds"
-                    value={p.id}
-                    defaultChecked={settings.paidServiceIds.includes(p.id)}
-                  />
-                  {p.name}
-                </label>
-              ))}
-            </div>
-          </>
+          <PaidServices
+            providers={state.providers}
+            selected={settings.paidServiceIds}
+            hint={t.paidServicesHint}
+            filterLabel={t.paidServicesFilter}
+            filterEmpty={t.paidServicesFilterEmpty}
+          />
         ) : (
           settings.paidServiceIds.map((id) => (
             <input key={id} type="hidden" name="paidServiceIds" value={id} />
@@ -240,7 +301,7 @@ export function HouseholdForm({
         {jellyErr ? <p className="error">{jellyErr}</p> : null}
       </fieldset>
 
-      <div className="actions">
+      <div className="actions span-all">
         <button className="btn narrow" type="submit" name="intent" value="save" disabled={pending}>
           {t.saveSettings}
         </button>

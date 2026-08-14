@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 export function LocalePicker({
   locale,
   options,
@@ -11,14 +13,20 @@ export function LocalePicker({
   label: string;
   action: (formData: FormData) => void | Promise<void>;
 }) {
+  const [picked, setPicked] = useState(locale);
+  useEffect(() => setPicked(locale), [locale]);
+
   return (
     <form action={action}>
       <label htmlFor="locale">{label}</label>
       <select
         id="locale"
         name="locale"
-        defaultValue={locale}
-        onChange={(event) => event.currentTarget.form?.requestSubmit()}
+        value={picked}
+        onChange={(event) => {
+          setPicked(event.currentTarget.value);
+          event.currentTarget.form?.requestSubmit();
+        }}
       >
         {options.map((opt) => (
           <option key={opt.locale} value={opt.locale}>

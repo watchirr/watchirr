@@ -12,6 +12,7 @@ import {
   type Person,
   type SearchError,
 } from "@/lib/tmdb";
+import { listItems } from "@/lib/watchlist";
 import { SearchHits } from "./hits";
 
 export const dynamic = "force-dynamic";
@@ -36,7 +37,7 @@ function personHref(q: string, person: Person): string {
 export default async function SearchPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; tmdb?: string; kind?: string; person?: string }>;
+  searchParams: Promise<{ q?: string; tmdb?: string; kind?: string; person?: string; err?: string }>;
 }) {
   const { store, access: gate } = await access();
   if (gate.status !== "app") redirect("/login");
@@ -59,6 +60,8 @@ export default async function SearchPage({
   const person = cast?.ok ? cast.person : undefined;
   const ref = parseTitleRef(params.tmdb, params.kind);
   const selected = ref ? titles.find((hit) => hit.tmdbId === ref.tmdbId && hit.kind === ref.kind) : undefined;
+  const onList = (await listItems(store)).map((i) => `${i.title.kind}:${i.title.tmdbId}`);
+  const addError = params.err ? params.err : undefined;
 
   return (
     <main className="main">
@@ -108,7 +111,15 @@ export default async function SearchPage({
         {titles.length > 0 ? (
           <>
             {people.length > 0 ? <h2 className="section-head">{t.searchTitlesHead}</h2> : null}
-            <SearchHits titles={titles} q={q} personId={personId ?? undefined} selected={selected} t={t} />
+            <SearchHits
+              titles={titles}
+              q={q}
+              personId={personId ?? undefined}
+              selected={selected}
+              onList={onList}
+              addError={addError}
+              t={t}
+            />
           </>
         ) : null}
       </section>

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { HttpGet } from "./connect.ts";
-import { parseCastCredits, parseKindFilter, parsePersonResults, parseSearchResults, parseTitleRef, personCast, posterUrl, searchPeople, searchTitles } from "./tmdb.ts";
+import { parseCastCredits, parseKindFilter, parsePersonResults, parseSearchResults, parseTitleRef, personCast, posterUrl, searchPeople, searchTitles, titleCoverage } from "./tmdb.ts";
 
 test("parseSearchResults keeps movie and TV with stable TMDB id + kind; drops people", () => {
   const titles = parseSearchResults({
@@ -190,4 +190,34 @@ test("searchTitles movie/tv endpoints force kind because TMDB omits media_type",
   assert.match(seen, /\/search\/tv\?/);
   assert.equal(tv.ok, true);
   if (tv.ok) assert.equal(tv.titles[0]?.kind, "tv");
+});
+
+test("titleCoverage hits watch/providers and keeps flatrate ∩ Paid Services only", async () => {
+  let seen = "";
+  const covered = await titleCoverage("k", { tmdbId: 550, kind: "movie" }, "US", [8], async (url) => {
+    seen = url;
+    return {
+      status: 200,
+      json: {
+        results: {
+          US: {
+            flatrate: [{ provider_id: 8, provider_name: "Netflix" }],
+            rent: [{ provider_id: 2, provider_name: "Apple TV" }],
+          },
+        },
+      },
+    };
+  });
+  assert.match(seen, /\/movie\/550\/watch\/providers/);
+  assert.deepEqual(covered, { ok: true, services: [{ id: 8, name: "Netflix" }] });
+
+  const rentOnly = await titleCoverage("k", { tmdbId: 1396, kind: "tv" }, "US", [8], async (url) => {
+    seen = url;
+    return {
+      status: 200,
+      json: { results: { US: { rent: [{ provider_id: 8, provider_name: "Netflix" }] } } },
+    };
+  });
+  assert.match(seen, /\/tv\/1396\/watch\/providers/);
+  assert.deepEqual(rentOnly, { ok: true, services: [] });
 });

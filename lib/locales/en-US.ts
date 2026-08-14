@@ -17,6 +17,8 @@ export const messages = {
   apiKeyLabel: "API key",
   countryLabel: "Country",
   paidServicesHint: "Paid Services used for Streaming Coverage (flatrate only).",
+  paidServicesFilter: "Filter services",
+  paidServicesFilterEmpty: "No services match.",
   urlLabel: "URL",
   rootFolderLabel: "Default root folder",
   qualityProfileLabel: "Default quality profile",
@@ -45,6 +47,16 @@ export const messages = {
   searchKindPerson: "Cast",
   searchKindFilter: "Title type",
   searchSelected: "Selected Title",
+  searchAdd: "Add to Watchlist",
+  searchOnList: "On Watchlist",
+  searchAddFailed: "Could not check Streaming Coverage.",
+  watchlistFilter: "Watchlist filter",
+  watchlistAll: "All",
+  watchlistCovered: "Covered",
+  watchlistAcquire: "To queue",
+  watchlistServices: "On {services}",
+  watchlistNeedsAcquire: "To queue",
+  watchlistNoneMatch: "No Items match this filter.",
 } as const;
 
 export type Messages = { [K in keyof typeof messages]: string };
