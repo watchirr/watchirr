@@ -5,6 +5,12 @@ export type ProbeError = "unreachable" | "unauthorized" | "failed";
 
 export type HttpResult = { status: number; json: unknown } | { error: "unreachable" };
 export type HttpGet = (url: string, headers: Record<string, string>) => Promise<HttpResult>;
+export type HttpPost = (
+  url: string,
+  headers: Record<string, string>,
+  body: unknown,
+) => Promise<HttpResult>;
+export type HttpPut = HttpPost;
 
 export type NamedId = { id: number; name: string };
 export type ArrLists = {
@@ -46,6 +52,44 @@ export function joinUrl(base: string, path: string): string {
 export async function defaultGet(url: string, headers: Record<string, string>): Promise<HttpResult> {
   try {
     const res = await fetch(url, { headers, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    const json = await res.json().catch(() => null);
+    return { status: res.status, json };
+  } catch {
+    return { error: "unreachable" };
+  }
+}
+
+export async function defaultPost(
+  url: string,
+  headers: Record<string, string>,
+  body: unknown,
+): Promise<HttpResult> {
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    const json = await res.json().catch(() => null);
+    return { status: res.status, json };
+  } catch {
+    return { error: "unreachable" };
+  }
+}
+
+export async function defaultPut(
+  url: string,
+  headers: Record<string, string>,
+  body: unknown,
+): Promise<HttpResult> {
+  try {
+    const res = await fetch(url, {
+      method: "PUT",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
     const json = await res.json().catch(() => null);
     return { status: res.status, json };
   } catch {

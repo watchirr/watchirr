@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { arrAcquire, arrLibraryLookup, parseSeasonNumbers } from "@/lib/arr";
 import { access } from "@/lib/http";
 import { getSettings, num, str } from "@/lib/settings";
 import { isTitleKind } from "@/lib/tmdb";
@@ -19,10 +20,20 @@ export async function addWatchlistAction(formData: FormData): Promise<void> {
   const year = num(formData.get("year"));
   const posterPath = str(formData.get("posterPath")) || null;
   const settings = await getSettings(store);
+  const seasons = parseSeasonNumbers(formData.getAll("seasons"));
   const result = await addTitle(
     store,
     { tmdbId, kind: kindRaw, name, year, posterPath },
-    { coverage: tmdbCoverageLookup(settings) },
+    {
+      coverage: tmdbCoverageLookup(settings),
+      inLibrary: arrLibraryLookup(settings),
+      acquire: arrAcquire(settings),
+    },
+    {
+      qualityProfileId: num(formData.get("qualityProfileId")),
+      rootFolder: str(formData.get("rootFolder")) || undefined,
+      seasons: kindRaw === "tv" ? seasons : undefined,
+    },
   );
 
   revalidatePath("/");

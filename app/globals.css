@@ -553,6 +553,177 @@ select:focus {
 
 .add-form {
   margin: 0.35rem 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+}
+
+.acquire-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: min(100%, 16rem);
+}
+
+.acquire-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.acquire-fields .field {
+  font-size: 13px;
+  padding: 0.35rem 0.5rem;
+}
+
+.season-picker {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  width: 100%;
+  max-width: 18rem;
+  min-width: 0;
+}
+
+.season-legend {
+  padding: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.season-hint {
+  margin: 0.35rem 0 0.45rem;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.season-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0 0 0.45rem;
+}
+
+.season-chip,
+.season-open {
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--brand-deep);
+  background: rgba(13, 143, 159, 0.12);
+  border: 1px solid rgba(13, 143, 159, 0.22);
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.season-open {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 0.35rem;
+  width: auto;
+  max-width: 100%;
+}
+
+.season-chip:hover,
+.season-open:hover {
+  background: rgba(13, 143, 159, 0.2);
+}
+
+.season-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-height: 12rem;
+  overflow: auto;
+  width: 100%;
+}
+
+.season-row {
+  display: grid;
+  grid-template-columns: 1.1rem minmax(0, 1fr);
+  align-items: center;
+  column-gap: 0.55rem;
+  margin: 0;
+  padding: 0.4rem 0.55rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  font-size: 13px;
+  line-height: 1.2;
+  cursor: pointer;
+  width: 100%;
+}
+
+.season-row.is-on {
+  background: rgba(13, 143, 159, 0.14);
+  border-color: rgba(13, 143, 159, 0.35);
+}
+
+.season-row.is-monitored {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.season-check {
+  width: 1rem !important;
+  height: 1rem;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-radius: 4px !important;
+  border: 1px solid rgba(14, 36, 51, 0.28) !important;
+  background: rgba(255, 255, 255, 0.85) !important;
+  backdrop-filter: none !important;
+  accent-color: var(--brand);
+  flex-shrink: 0;
+  justify-self: center;
+}
+
+span.season-check {
+  display: block;
+  border-style: dashed !important;
+  background: transparent !important;
+}
+
+.season-label {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+.expand-form {
+  margin-top: 0.45rem;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.45rem;
+  width: 100%;
+  max-width: 18rem;
+}
+
+.season-submit-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.expand-form .add-btn {
+  width: auto;
+  margin: 0;
 }
 
 .add-btn {

@@ -1,3 +1,4 @@
+import type { AcquireFn, AcquireOpts, ArrError, LibraryLookup } from "./arr.ts";
 import type { Store } from "./auth.ts";
 import type { HouseholdSettings } from "./settings.ts";
 import { num, str } from "./settings.ts";
@@ -18,28 +19,32 @@ export type WatchlistItem = {
   title: Title;
   services: PaidHit[];
   shouldAcquire: boolean;
+  inLibrary: boolean;
   addedAt: number;
 };
 
 export type WatchlistView = "all" | "covered" | "acquire";
 
-export type Acquire = (title: Title) => Promise<void>;
-
 export type CoverageLookup = (title: Title) => Promise<CoverageResult>;
+
+export type AddError = SearchError | ArrError;
 
 export type AddResult =
   | { ok: true; item: WatchlistItem; acquired: boolean; existed: boolean }
-  | { ok: false; error: SearchError };
+  | { ok: false; error: AddError };
 
-// ponytail: Acquire is a port; production no-op until ticket 06 wires Radarr/Sonarr.
-export const noopAcquire: Acquire = async () => {};
+export type Acquire = AcquireFn;
+
+// ponytail: default ports for tests / covered-only paths.
+export const noopAcquire: Acquire = async () => ({ ok: true });
+export const neverInLibrary: LibraryLookup = async () => ({ ok: true, inLibrary: false });
 
 export function parseWatchlistView(value: unknown): WatchlistView {
   return value === "covered" || value === "acquire" ? value : "all";
 }
 
 export function filterItems(items: WatchlistItem[], view: WatchlistView): WatchlistItem[] {
-  if (view === "covered") return items.filter((i) => !i.shouldAcquire);
+  if (view === "covered") return items.filter((i) => !i.shouldAcquire && !i.inLibrary);
   if (view === "acquire") return items.filter((i) => i.shouldAcquire);
   return items;
 }
@@ -83,8 +88,11 @@ function itemFrom(raw: unknown): WatchlistItem | null {
     : [];
   const addedAt =
     typeof o.addedAt === "number" && Number.isFinite(o.addedAt) ? o.addedAt : Date.now();
-  const shouldAcquire = o.shouldAcquire === true || (o.shouldAcquire !== false && services.length === 0);
-  return { title, services, shouldAcquire, addedAt };
+  const inLibrary = o.inLibrary === true;
+  const uncovered = o.shouldAcquire === true || (o.shouldAcquire !== false && services.length === 0);
+  // In Library skips Acquire — never treat as "to queue".
+  const shouldAcquire = uncovered && !inLibrary;
+  return { title, services, shouldAcquire, inLibrary, addedAt };
 }
 
 export function parseItems(raw: string | null | undefined): WatchlistItem[] {
@@ -147,16 +155,19 @@ export function tmdbCoverageLookup(
 }
 
 /**
- * Watchlist application seam: create Item, resolve Streaming Coverage, decide Acquire.
- * Covered (flatrate ∩ Paid Services) → no Acquire. Uncovered → shouldAcquire + call acquire port.
+ * Watchlist application seam: create Item, resolve Streaming Coverage, Acquire or expand seasons.
+ * Covered → no Acquire. Uncovered + not In Library → Acquire once.
+ * Uncovered + In Library + TV seasons → expand monitored seasons (no double-queue).
  */
 export async function addTitle(
   store: Store,
   title: Title,
   deps: {
     coverage: CoverageLookup;
+    inLibrary?: LibraryLookup;
     acquire?: Acquire;
   },
+  opts?: AcquireOpts,
 ): Promise<AddResult> {
   const existing = await findItem(store, title.tmdbId, title.kind);
   if (existing) return { ok: true, item: existing, acquired: false, existed: true };
@@ -164,15 +175,52 @@ export async function addTitle(
   const cov = await deps.coverage(title);
   if (!cov.ok) return { ok: false, error: cov.error };
 
-  const shouldAcquire = cov.services.length === 0;
-  if (shouldAcquire) await (deps.acquire ?? noopAcquire)(title);
+  const covered = cov.services.length > 0;
+  let inLibrary = false;
+  let acquired = false;
+  const seasons = opts?.seasons ?? [];
+
+  if (!covered) {
+    const lib = await (deps.inLibrary ?? neverInLibrary)(title);
+    if (!lib.ok) return { ok: false, error: lib.error };
+    inLibrary = lib.inLibrary;
+    if (!inLibrary) {
+      const acq = await (deps.acquire ?? noopAcquire)(title, opts);
+      if (!acq.ok) return { ok: false, error: acq.error };
+      acquired = true;
+    } else if (title.kind === "tv" && seasons.length > 0) {
+      const acq = await (deps.acquire ?? noopAcquire)(title, opts);
+      if (!acq.ok) return { ok: false, error: acq.error };
+      acquired = true;
+    }
+  }
 
   const item: WatchlistItem = {
     title,
     services: cov.services,
-    shouldAcquire,
+    shouldAcquire: !covered && !inLibrary,
+    inLibrary,
     addedAt: Date.now(),
   };
   await saveItem(store, item);
-  return { ok: true, item, acquired: shouldAcquire, existed: false };
+  return { ok: true, item, acquired, existed: false };
+}
+
+/**
+ * Expand seasons on a Watchlist TV Item already In Library (Sonarr PUT; no Remove).
+ */
+export async function expandSeasons(
+  store: Store,
+  tmdbId: number,
+  seasons: number[],
+  deps: { acquire?: Acquire },
+): Promise<AddResult> {
+  const existing = await findItem(store, tmdbId, "tv");
+  if (!existing) return { ok: false, error: "not-found" };
+  if (seasons.length === 0) return { ok: false, error: "missing-seasons" };
+  const acq = await (deps.acquire ?? noopAcquire)(existing.title, { seasons });
+  if (!acq.ok) return { ok: false, error: acq.error };
+  const item = { ...existing, inLibrary: true, shouldAcquire: false };
+  await saveItem(store, item);
+  return { ok: true, item, acquired: true, existed: true };
 }

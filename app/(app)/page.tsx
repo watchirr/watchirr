@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ExpandSeasons } from "./expand-seasons";
 import { access, currentLocale } from "@/lib/http";
-import { messages } from "@/lib/locale";
+import { messages, type Messages } from "@/lib/locale";
 import { posterUrl } from "@/lib/tmdb";
 import { filterItems, listItems, parseWatchlistView } from "@/lib/watchlist";
 
@@ -12,17 +13,31 @@ function Art({ path }: { path: string | null }) {
   return src ? <img className="art" src={src} alt="" /> : <div className="art" aria-hidden="true" />;
 }
 
+function expandFail(t: Messages, error: string): string {
+  if (error === "missing-seasons") return t.searchAddMissingSeasons;
+  if (error === "missing-defaults") return t.searchAddMissingDefaults;
+  if (error === "missing-tvdb") return t.searchAddMissingTvdb;
+  if (error === "not-found") return t.searchAddNotFound.replace("{service}", "Sonarr");
+  if (error === "arr-unauthorized") return t.searchAddArrUnauthorized.replace("{service}", "Sonarr");
+  if (error === "arr-unreachable" || error === "arr-failed") {
+    return t.searchAddArrFailed.replace("{service}", "Sonarr");
+  }
+  return t.searchAddFailed;
+}
+
 export default async function WatchlistPage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string }>;
+  searchParams: Promise<{ view?: string; err?: string }>;
 }) {
   const { store, access: gate } = await access();
   if (gate.status !== "app") redirect("/login");
   const t = messages[await currentLocale()];
-  const view = parseWatchlistView((await searchParams).view);
+  const params = await searchParams;
+  const view = parseWatchlistView(params.view);
   const all = await listItems(store);
   const items = filterItems(all, view);
+  const expandError = params.err ? expandFail(t, params.err) : undefined;
 
   const tabs = [
     { view: "all" as const, label: t.watchlistAll },
@@ -34,6 +49,7 @@ export default async function WatchlistPage({
     <main className="main">
       <section className="panel glass wide">
         <h1 className="section-head">{t.navWatchlist}</h1>
+        {expandError ? <p className="error">{expandError}</p> : null}
         {all.length === 0 ? (
           <p className="muted">{t.watchlistEmpty}</p>
         ) : (
@@ -56,12 +72,15 @@ export default async function WatchlistPage({
               <ul className="hits watchlist-hits">
                 {items.map((item) => {
                   const hit = item.title;
-                  const status = item.shouldAcquire
-                    ? t.watchlistNeedsAcquire
-                    : t.watchlistServices.replace(
-                        "{services}",
-                        item.services.map((s) => s.name).join(", "),
-                      );
+                  const status = item.inLibrary
+                    ? t.watchlistInLibrary
+                    : item.shouldAcquire
+                      ? t.watchlistNeedsAcquire
+                      : t.watchlistServices.replace(
+                          "{services}",
+                          item.services.map((s) => s.name).join(", "),
+                        );
+                  const tone = item.shouldAcquire ? "sub warn" : "sub ok";
                   return (
                     <li key={`${hit.kind}-${hit.tmdbId}`}>
                       <div className="hit">
@@ -73,7 +92,10 @@ export default async function WatchlistPage({
                               .filter(Boolean)
                               .join(" · ")}
                           </span>
-                          <span className={item.shouldAcquire ? "sub warn" : "sub ok"}>{status}</span>
+                          <span className={tone}>{status}</span>
+                          {item.inLibrary && hit.kind === "tv" ? (
+                            <ExpandSeasons tmdbId={hit.tmdbId} t={t} />
+                          ) : null}
                         </span>
                       </div>
                     </li>

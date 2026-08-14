@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { probeArr } from "@/lib/connect";
 import { access, currentLocale, currentTitleKind } from "@/lib/http";
 import { messages, type Messages } from "@/lib/locale";
 import { getSettings, num, str } from "@/lib/settings";
@@ -22,6 +23,19 @@ function fail(t: Messages, error: SearchError): string {
   const key =
     error === "unreachable" ? t.connectUnreachable : error === "unauthorized" ? t.connectUnauthorized : t.connectFailed;
   return key.replace("{service}", "TMDB");
+}
+
+function addFail(t: Messages, error: string, kind?: string): string {
+  const service = kind === "tv" ? "Sonarr" : "Radarr";
+  if (error === "missing-defaults") return t.searchAddMissingDefaults;
+  if (error === "missing-tvdb") return t.searchAddMissingTvdb;
+  if (error === "missing-seasons") return t.searchAddMissingSeasons;
+  if (error === "not-found") return t.searchAddNotFound.replace("{service}", service);
+  if (error === "arr-unauthorized") return t.searchAddArrUnauthorized.replace("{service}", service);
+  if (error === "arr-unreachable" || error === "arr-failed") {
+    return t.searchAddArrFailed.replace("{service}", service);
+  }
+  return t.searchAddFailed;
 }
 
 function Art({ path, round }: { path: string | null; round?: boolean }) {
@@ -47,12 +61,23 @@ export default async function SearchPage({
   const params = await searchParams;
   const q = str(params.q);
   const personId = num(params.person);
-  const key = (await getSettings(store)).tmdbApiKey;
+  const settings = await getSettings(store);
+  const key = settings.tmdbApiKey;
 
   const cast = personId ? await personCast(key, personId, locale, kind) : null;
-  const [titlesResult, peopleResult] = cast
-    ? [null, null]
-    : await Promise.all([searchTitles(key, q, locale, kind), q ? searchPeople(key, q, locale) : Promise.resolve(null)]);
+  const [titlesResult, peopleResult, radarrProbe, sonarrProbe] = cast
+    ? await Promise.all([
+        Promise.resolve(null),
+        Promise.resolve(null),
+        probeArr("radarr", settings.radarr.url, settings.radarr.apiKey),
+        probeArr("sonarr", settings.sonarr.url, settings.sonarr.apiKey),
+      ])
+    : await Promise.all([
+        searchTitles(key, q, locale, kind),
+        q ? searchPeople(key, q, locale) : Promise.resolve(null),
+        probeArr("radarr", settings.radarr.url, settings.radarr.apiKey),
+        probeArr("sonarr", settings.sonarr.url, settings.sonarr.apiKey),
+      ]);
 
   const error = !cast && titlesResult && !titlesResult.ok ? titlesResult.error : cast && !cast.ok ? cast.error : undefined;
   const titles = cast?.ok ? cast.titles : titlesResult?.ok ? titlesResult.titles : [];
@@ -61,7 +86,10 @@ export default async function SearchPage({
   const ref = parseTitleRef(params.tmdb, params.kind);
   const selected = ref ? titles.find((hit) => hit.tmdbId === ref.tmdbId && hit.kind === ref.kind) : undefined;
   const onList = (await listItems(store)).map((i) => `${i.title.kind}:${i.title.tmdbId}`);
-  const addError = params.err ? params.err : undefined;
+  const addError = params.err ? addFail(t, params.err, params.kind) : undefined;
+  const blankLists = { ready: false, qualityProfiles: [], rootFolders: [], languageProfiles: null };
+  const radarrLists = radarrProbe.ok && !radarrProbe.skipped ? radarrProbe.data : blankLists;
+  const sonarrLists = sonarrProbe.ok && !sonarrProbe.skipped ? sonarrProbe.data : blankLists;
 
   return (
     <main className="main">
@@ -119,6 +147,10 @@ export default async function SearchPage({
               onList={onList}
               addError={addError}
               t={t}
+              radarr={settings.radarr}
+              sonarr={settings.sonarr}
+              radarrLists={radarrLists}
+              sonarrLists={sonarrLists}
             />
           </>
         ) : null}
