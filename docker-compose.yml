@@ -1,0 +1,13 @@
+services:
+  watchirr:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - watchirr-data:/data
+    environment:
+      DATA_DIR: /data
+      # DATABASE_URL: postgres://watchirr:watchirr@db:5432/watchirr
+
+volumes:
+  watchirr-data:

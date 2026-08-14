@@ -1,0 +1,256 @@
+:root {
+  --ink: #0e2433;
+  --muted: #5a7180;
+  --brand: #0d8f9f;
+  --brand-deep: #08707c;
+  --warn: #c45c16;
+  --glass-bg: rgba(255, 255, 255, 0.42);
+  --glass-blur: blur(28px) saturate(1.55);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.62);
+  --glass-inset: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+  --glass-shadow: 0 14px 40px rgba(14, 36, 51, 0.1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  color: var(--ink);
+  font-family: var(--font-sans), sans-serif;
+  background-color: #d6e8ef;
+  background-image:
+    radial-gradient(900px 500px at 12% -10%, rgba(13, 143, 159, 0.28), transparent 55%),
+    radial-gradient(700px 420px at 90% 0%, rgba(125, 196, 220, 0.45), transparent 50%),
+    radial-gradient(600px 380px at 70% 100%, rgba(232, 201, 120, 0.28), transparent 55%),
+    radial-gradient(500px 320px at 8% 85%, rgba(167, 221, 196, 0.35), transparent 50%);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.wordmark {
+  font-family: var(--font-serif), serif;
+  font-size: 1.75rem;
+  font-weight: 400;
+  color: var(--ink);
+}
+
+.wordmark em {
+  font-style: italic;
+  color: var(--brand);
+}
+
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: var(--glass-border);
+  box-shadow: var(--glass-shadow), var(--glass-inset);
+}
+
+.shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 1rem 1.25rem 0;
+  padding: 0.7rem 1rem;
+  border-radius: 20px;
+}
+
+.header-end {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.nav {
+  display: flex;
+  gap: 0.15rem;
+  padding: 0.2rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.28);
+  border: var(--glass-border);
+}
+
+.nav a {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+}
+
+.nav a:hover {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.nav a[aria-current="page"] {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7);
+}
+
+.nav a:active,
+.btn:active {
+  transform: scale(0.97);
+}
+
+.who {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.ghost {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 0.35rem 0.5rem;
+}
+
+.ghost:hover {
+  color: var(--ink);
+}
+
+.main {
+  flex: 1;
+  padding: 1.25rem;
+}
+
+.panel.wide {
+  margin: 0;
+  max-width: 40rem;
+}
+
+.panel {
+  max-width: 28rem;
+  margin: 4rem auto;
+  padding: 1.75rem;
+  border-radius: 24px;
+}
+
+.panel h1,
+.section-head {
+  margin: 0 0 0.35rem;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.lede {
+  margin: 0 0 1.25rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.auth-brand {
+  display: block;
+  font-size: 2.5rem;
+  margin-bottom: 0.75rem;
+}
+
+label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  margin: 0.75rem 0 0.35rem;
+}
+
+input {
+  width: 100%;
+  font: inherit;
+  font-size: 1rem;
+  color: var(--ink);
+  padding: 0.7rem 0.85rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(12px);
+}
+
+input:focus {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+
+.btn {
+  display: inline-flex;
+  justify-content: center;
+  width: 100%;
+  margin-top: 1.1rem;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(13, 143, 159, 0.9);
+  border: 1px solid rgba(13, 143, 159, 0.35);
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+}
+
+.btn:hover {
+  background: var(--brand-deep);
+}
+
+.error {
+  margin: 0 0 1rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  background: rgba(196, 92, 22, 0.12);
+  color: var(--warn);
+  font-size: 0.9rem;
+}
+
+.foot {
+  margin: 1rem 0 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.foot a {
+  color: var(--brand-deep);
+  font-weight: 600;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass,
+  input {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgba(255, 255, 255, 0.92);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav a:active,
+  .btn:active {
+    transform: none;
+  }
+}

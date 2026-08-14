@@ -1,0 +1,10 @@
+node_modules
+.next
+out
+data
+.git
+.scratch
+*.md
+!README.md
+.env
+.env*.local
