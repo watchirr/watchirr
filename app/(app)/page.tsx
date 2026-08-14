@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ExpandSeasons } from "./expand-seasons";
+import { markWatchedAction } from "./watched-actions";
 import { access, currentLocale } from "@/lib/http";
+import { jellyfinProgress } from "@/lib/jellyfin";
 import { messages, type Messages } from "@/lib/locale";
+import { getSettings } from "@/lib/settings";
 import { posterUrl } from "@/lib/tmdb";
-import { filterItems, listItems, parseWatchlistView } from "@/lib/watchlist";
+import { filterItems, listItems, parseWatchlistView, syncJellyfinWatched } from "@/lib/watchlist";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +38,11 @@ export default async function WatchlistPage({
   const t = messages[await currentLocale()];
   const params = await searchParams;
   const view = parseWatchlistView(params.view);
+
+  // Simple poll on list load (ADR 0004 / ticket 07) — no webhook.
+  const settings = await getSettings(store);
+  await syncJellyfinWatched(store, { progress: jellyfinProgress(settings) });
+
   const all = await listItems(store);
   const items = filterItems(all, view);
   const expandError = params.err ? expandFail(t, params.err) : undefined;
@@ -43,6 +51,7 @@ export default async function WatchlistPage({
     { view: "all" as const, label: t.watchlistAll },
     { view: "covered" as const, label: t.watchlistCovered },
     { view: "acquire" as const, label: t.watchlistAcquire },
+    { view: "watched" as const, label: t.watchlistWatched },
   ];
 
   return (
@@ -72,15 +81,17 @@ export default async function WatchlistPage({
               <ul className="hits watchlist-hits">
                 {items.map((item) => {
                   const hit = item.title;
-                  const status = item.inLibrary
-                    ? t.watchlistInLibrary
-                    : item.shouldAcquire
-                      ? t.watchlistNeedsAcquire
-                      : t.watchlistServices.replace(
-                          "{services}",
-                          item.services.map((s) => s.name).join(", "),
-                        );
-                  const tone = item.shouldAcquire ? "sub warn" : "sub ok";
+                  const status = item.watched
+                    ? t.watchlistWatched
+                    : item.inLibrary
+                      ? t.watchlistInLibrary
+                      : item.shouldAcquire
+                        ? t.watchlistNeedsAcquire
+                        : t.watchlistServices.replace(
+                            "{services}",
+                            item.services.map((s) => s.name).join(", "),
+                          );
+                  const tone = item.shouldAcquire && !item.watched ? "sub tone-warn" : "sub tone-ok";
                   return (
                     <li key={`${hit.kind}-${hit.tmdbId}`}>
                       <div className="hit">
@@ -93,8 +104,18 @@ export default async function WatchlistPage({
                               .join(" · ")}
                           </span>
                           <span className={tone}>{status}</span>
-                          {item.inLibrary && hit.kind === "tv" ? (
+                          {item.inLibrary && hit.kind === "tv" && !item.watched ? (
                             <ExpandSeasons tmdbId={hit.tmdbId} t={t} />
+                          ) : null}
+                          {!item.watched ? (
+                            <form action={markWatchedAction} className="watched-form">
+                              <input type="hidden" name="tmdbId" value={hit.tmdbId} />
+                              <input type="hidden" name="kind" value={hit.kind} />
+                              <input type="hidden" name="view" value={view} />
+                              <button type="submit" className="season-open">
+                                {t.watchlistMarkWatched}
+                              </button>
+                            </form>
                           ) : null}
                         </span>
                       </div>

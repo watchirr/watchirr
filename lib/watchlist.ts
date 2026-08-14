@@ -1,5 +1,6 @@
 import type { AcquireFn, AcquireOpts, ArrError, LibraryLookup } from "./arr.ts";
 import type { Store } from "./auth.ts";
+import type { ProgressLookup } from "./jellyfin.ts";
 import type { HouseholdSettings } from "./settings.ts";
 import { num, str } from "./settings.ts";
 import {
@@ -20,10 +21,11 @@ export type WatchlistItem = {
   services: PaidHit[];
   shouldAcquire: boolean;
   inLibrary: boolean;
+  watched: boolean;
   addedAt: number;
 };
 
-export type WatchlistView = "all" | "covered" | "acquire";
+export type WatchlistView = "all" | "covered" | "acquire" | "watched";
 
 export type CoverageLookup = (title: Title) => Promise<CoverageResult>;
 
@@ -40,12 +42,13 @@ export const noopAcquire: Acquire = async () => ({ ok: true });
 export const neverInLibrary: LibraryLookup = async () => ({ ok: true, inLibrary: false });
 
 export function parseWatchlistView(value: unknown): WatchlistView {
-  return value === "covered" || value === "acquire" ? value : "all";
+  return value === "covered" || value === "acquire" || value === "watched" ? value : "all";
 }
 
 export function filterItems(items: WatchlistItem[], view: WatchlistView): WatchlistItem[] {
-  if (view === "covered") return items.filter((i) => !i.shouldAcquire && !i.inLibrary);
-  if (view === "acquire") return items.filter((i) => i.shouldAcquire);
+  if (view === "covered") return items.filter((i) => !i.shouldAcquire && !i.inLibrary && !i.watched);
+  if (view === "acquire") return items.filter((i) => i.shouldAcquire && !i.watched);
+  if (view === "watched") return items.filter((i) => i.watched);
   return items;
 }
 
@@ -89,10 +92,11 @@ function itemFrom(raw: unknown): WatchlistItem | null {
   const addedAt =
     typeof o.addedAt === "number" && Number.isFinite(o.addedAt) ? o.addedAt : Date.now();
   const inLibrary = o.inLibrary === true;
+  const watched = o.watched === true;
   const uncovered = o.shouldAcquire === true || (o.shouldAcquire !== false && services.length === 0);
   // In Library skips Acquire — never treat as "to queue".
   const shouldAcquire = uncovered && !inLibrary;
-  return { title, services, shouldAcquire, inLibrary, addedAt };
+  return { title, services, shouldAcquire, inLibrary, watched, addedAt };
 }
 
 export function parseItems(raw: string | null | undefined): WatchlistItem[] {
@@ -200,6 +204,7 @@ export async function addTitle(
     services: cov.services,
     shouldAcquire: !covered && !inLibrary,
     inLibrary,
+    watched: false,
     addedAt: Date.now(),
   };
   await saveItem(store, item);
@@ -223,4 +228,44 @@ export async function expandSeasons(
   const item = { ...existing, inLibrary: true, shouldAcquire: false };
   await saveItem(store, item);
   return { ok: true, item, acquired: true, existed: true };
+}
+
+/**
+ * Manual Household Watched. Does not touch *arr / disk (ADR 0014 / glossary).
+ */
+export async function markWatched(
+  store: Store,
+  tmdbId: number,
+  kind: TitleKind,
+): Promise<WatchlistItem | null> {
+  const existing = await findItem(store, tmdbId, kind);
+  if (!existing) return null;
+  if (existing.watched) return existing;
+  const item = { ...existing, watched: true };
+  await saveItem(store, item);
+  return item;
+}
+
+/**
+ * Poll Jellyfin progress into Household Watched. No *arr delete.
+ */
+export async function syncJellyfinWatched(
+  store: Store,
+  deps: { progress: ProgressLookup },
+): Promise<{ marked: number }> {
+  const result = await deps.progress();
+  if (!result.ok) return { marked: 0 };
+  if (result.progressed.length === 0) return { marked: 0 };
+
+  const hits = new Set(result.progressed.map((p) => `${p.kind}:${p.tmdbId}`));
+  const items = await listItems(store);
+  let marked = 0;
+  const next = items.map((item) => {
+    if (item.watched) return item;
+    if (!hits.has(`${item.title.kind}:${item.title.tmdbId}`)) return item;
+    marked += 1;
+    return { ...item, watched: true };
+  });
+  if (marked > 0) await putItems(store, next);
+  return { marked };
 }

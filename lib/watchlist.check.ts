@@ -10,9 +10,12 @@ import {
   addTitle,
   expandSeasons,
   filterItems,
+  findItem,
   listItems,
+  markWatched,
   parseItems,
   parseWatchlistView,
+  syncJellyfinWatched,
   type CoverageLookup,
   type WatchlistItem,
 } from "./watchlist.ts";
@@ -64,23 +67,47 @@ test("flatrateCoverage intersects Paid Services; rent/buy alone is not coverage"
   assert.deepEqual(flatrateCoverage(json, "US", []), []);
 });
 
-test("parseWatchlistView and filterItems distinguish covered vs needs-Acquire", () => {
+test("parseWatchlistView and filterItems distinguish covered vs needs-Acquire vs Watched", () => {
   assert.equal(parseWatchlistView("covered"), "covered");
   assert.equal(parseWatchlistView("acquire"), "acquire");
+  assert.equal(parseWatchlistView("watched"), "watched");
   assert.equal(parseWatchlistView("nope"), "all");
 
   const items: WatchlistItem[] = [
-    { title: fight, services: [{ id: 8, name: "Netflix" }], shouldAcquire: false, inLibrary: false, addedAt: 2 },
-    { title: bad, services: [], shouldAcquire: true, inLibrary: false, addedAt: 1 },
+    {
+      title: fight,
+      services: [{ id: 8, name: "Netflix" }],
+      shouldAcquire: false,
+      inLibrary: false,
+      watched: false,
+      addedAt: 2,
+    },
+    {
+      title: bad,
+      services: [],
+      shouldAcquire: true,
+      inLibrary: false,
+      watched: false,
+      addedAt: 1,
+    },
     {
       title: { tmdbId: 11, kind: "movie", name: "Star Wars", year: 1977, posterPath: null },
       services: [],
       shouldAcquire: false,
       inLibrary: true,
+      watched: false,
       addedAt: 0,
     },
+    {
+      title: { tmdbId: 680, kind: "movie", name: "Pulp Fiction", year: 1994, posterPath: null },
+      services: [{ id: 8, name: "Netflix" }],
+      shouldAcquire: false,
+      inLibrary: false,
+      watched: true,
+      addedAt: 3,
+    },
   ];
-  assert.equal(filterItems(items, "all").length, 3);
+  assert.equal(filterItems(items, "all").length, 4);
   assert.deepEqual(
     filterItems(items, "covered").map((i) => i.title.tmdbId),
     [550],
@@ -88,6 +115,10 @@ test("parseWatchlistView and filterItems distinguish covered vs needs-Acquire", 
   assert.deepEqual(
     filterItems(items, "acquire").map((i) => i.title.tmdbId),
     [1396],
+  );
+  assert.deepEqual(
+    filterItems(items, "watched").map((i) => i.title.tmdbId),
+    [680],
   );
   assert.equal(parseItems("nope").length, 0);
 });
@@ -110,6 +141,7 @@ test("flatrate on a Paid Service → Item saved, Acquire not called", async () =
   assert.equal(result.acquired, false);
   assert.equal(result.item.shouldAcquire, false);
   assert.equal(result.item.inLibrary, false);
+  assert.equal(result.item.watched, false);
   assert.deepEqual(result.item.services, [{ id: 8, name: "Netflix" }]);
   assert.deepEqual(calls, []);
 
@@ -287,4 +319,70 @@ test("coverage failure does not create an Item or Acquire", async () => {
   assert.deepEqual(result, { ok: false, error: "unreachable" });
   assert.deepEqual(calls, []);
   assert.equal(await listItems(store).then((items) => items.find((i) => i.title.tmdbId === 11)), undefined);
+});
+
+test("manual mark Watched flips Item and does not call Acquire", async () => {
+  const lonely = {
+    tmdbId: 278,
+    kind: "movie" as const,
+    name: "The Shawshank Redemption",
+    year: 1994,
+    posterPath: null,
+  };
+  const calls: number[] = [];
+  await addTitle(store, lonely, {
+    coverage: async () => ({ ok: true, services: [{ id: 8, name: "Netflix" }] }),
+    acquire: async (title) => {
+      calls.push(title.tmdbId);
+      return { ok: true };
+    },
+  });
+  const marked = await markWatched(store, 278, "movie");
+  assert.equal(marked?.watched, true);
+  assert.deepEqual(calls, []);
+  const again = await markWatched(store, 278, "movie");
+  assert.equal(again?.watched, true);
+  assert.equal((await findItem(store, 278, "movie"))?.watched, true);
+  assert.equal(await markWatched(store, 999, "movie"), null);
+});
+
+test("Jellyfin progress > 0% matching a Watchlist Title sets Watched without Acquire", async () => {
+  const lonely = {
+    tmdbId: 424,
+    kind: "movie" as const,
+    name: "Schindler's List",
+    year: 1993,
+    posterPath: null,
+  };
+  const calls: number[] = [];
+  await addTitle(store, lonely, {
+    coverage: async () => ({ ok: true, services: [] }),
+    inLibrary: async () => ({ ok: true, inLibrary: true }),
+    acquire: async (title) => {
+      calls.push(title.tmdbId);
+      return { ok: true };
+    },
+  });
+  const sync = await syncJellyfinWatched(store, {
+    progress: async () => ({
+      ok: true,
+      progressed: [
+        { tmdbId: 424, kind: "movie" },
+        { tmdbId: 1, kind: "movie" },
+      ],
+    }),
+  });
+  assert.deepEqual(sync, { marked: 1 });
+  assert.equal((await findItem(store, 424, "movie"))?.watched, true);
+  assert.deepEqual(calls, []);
+
+  const noop = await syncJellyfinWatched(store, {
+    progress: async () => ({ ok: true, progressed: [{ tmdbId: 424, kind: "movie" }] }),
+  });
+  assert.deepEqual(noop, { marked: 0 });
+
+  const fail = await syncJellyfinWatched(store, {
+    progress: async () => ({ ok: false, error: "jellyfin-unreachable" }),
+  });
+  assert.deepEqual(fail, { marked: 0 });
 });

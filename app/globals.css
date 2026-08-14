@@ -633,6 +633,10 @@ select:focus {
   max-width: 100%;
 }
 
+.watched-form {
+  margin: 0;
+}
+
 .season-chip:hover,
 .season-open:hover {
   background: rgba(13, 143, 159, 0.2);
@@ -744,11 +748,12 @@ span.season-check {
   transform: scale(0.97);
 }
 
-.sub.ok {
+/* Avoid bare .ok — that class is the settings success banner. */
+.sub.tone-ok {
   color: var(--brand-deep);
 }
 
-.sub.warn {
+.sub.tone-warn {
   color: var(--warn);
 }
 
@@ -776,7 +781,7 @@ span.season-check {
 .hit {
   display: flex;
   gap: 0.75rem;
-  align-items: center;
+  align-items: flex-start;
   min-width: 0;
   width: 100%;
   margin: 0;
@@ -1042,6 +1047,15 @@ div.hit {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 0.5rem;
+    align-items: stretch;
+  }
+
+  .hits > li {
+    display: flex;
+  }
+
+  .hits .hit {
+    flex: 1;
   }
 
   .hit.hero .art {

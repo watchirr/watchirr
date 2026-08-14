@@ -71,6 +71,8 @@ export const messages = {
   watchlistAll: "All",
   watchlistCovered: "Covered",
   watchlistAcquire: "To queue",
+  watchlistWatched: "Watched",
+  watchlistMarkWatched: "Mark Watched",
   watchlistServices: "On {services}",
   watchlistNeedsAcquire: "To queue",
   watchlistInLibrary: "In Library",
