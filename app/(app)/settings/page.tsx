@@ -24,7 +24,7 @@ export default async function SettingsPage() {
   const initial = await loadHousehold();
   return (
     <main className="main">
-      <section className="panel glass wide">
+      <section className="panel glass measure">
         <h1 className="section-head">{t.settingsTitle}</h1>
         <LocalePicker locale={locale} options={localeOptions} label={t.languageLabel} action={saveLocale} />
         <HouseholdForm action={householdAction} initial={initial} t={t} />

@@ -31,7 +31,20 @@ export const messages = {
   connectUnauthorized: "{service} rejected the API key.",
   connectFailed: "{service} request failed.",
   watchlistEmpty: "No Watchlist Items yet.",
-  searchSoon: "Title search is not available yet.",
+  searchPlaceholder: "Search movies, TV, and cast",
+  searchSubmit: "Search",
+  searchNeedKey: "Add a TMDB API key to search Titles.",
+  searchEmpty: "No Titles or cast matched.",
+  searchCastEmpty: "No Titles in this person's credits.",
+  searchPeople: "Cast",
+  searchTitlesHead: "Titles",
+  searchBack: "Back to results",
+  searchKindAll: "Both",
+  searchKindMovie: "Movie",
+  searchKindTv: "TV",
+  searchKindPerson: "Cast",
+  searchKindFilter: "Title type",
+  searchSelected: "Selected Title",
 } as const;
 
 export type Messages = { [K in keyof typeof messages]: string };

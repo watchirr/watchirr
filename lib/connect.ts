@@ -31,7 +31,7 @@ export type HouseholdLists = {
 };
 
 const TIMEOUT_MS = 4000;
-const TMDB = "https://api.themoviedb.org/3";
+export const TMDB = "https://api.themoviedb.org/3";
 
 function blankArr(): ArrLists {
   return { ready: false, qualityProfiles: [], rootFolders: [], languageProfiles: null };
@@ -53,7 +53,7 @@ export async function defaultGet(url: string, headers: Record<string, string>): 
   }
 }
 
-function classify(res: HttpResult): "ok" | ProbeError {
+export function classify(res: HttpResult): "ok" | ProbeError {
   if ("error" in res) return "unreachable";
   if (res.status === 401 || res.status === 403) return "unauthorized";
   if (res.status >= 200 && res.status < 300) return "ok";
