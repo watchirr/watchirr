@@ -2,6 +2,8 @@
 
 Household Watchlist. Docker self-host; SQLite by default.
 
+**Self-host:** see **[docs/self-host.md](./docs/self-host.md)** — Compose CLI + Portainer, volumes/SQLite warnings, Settings, Locale, happy path.
+
 Development (hot reload):
 
 ```bash
