@@ -2,13 +2,14 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   arrAcquire,
+  arrDrop,
   arrLibraryLookup,
   lookupInLibrary,
   movieDefaultsReady,
   seriesDefaultsReady,
   tvdbIdForTmdb,
 } from "./arr.ts";
-import type { HttpGet, HttpPost, HttpResult } from "./connect.ts";
+import type { HttpDelete, HttpGet, HttpPost, HttpResult } from "./connect.ts";
 import type { HouseholdSettings } from "./settings.ts";
 
 const settings: HouseholdSettings = {
@@ -223,4 +224,63 @@ test("Acquire fails clearly when *arr defaults missing", async () => {
     error: "unreachable",
   }))({ tmdbId: 550, kind: "movie", name: "Fight Club", year: 1999, posterPath: null });
   assert.deepEqual(result, { ok: false, error: "missing-defaults" });
+});
+
+test("arrDrop movie DELETEs with deleteFiles and no import exclusion", async () => {
+  const deleted: string[] = [];
+  const get = fakeGet({
+    "/api/v3/movie/lookup": { status: 200, json: [{ title: "Fight Club", id: 42, tmdbId: 550 }] },
+  });
+  const del: HttpDelete = async (url) => {
+    deleted.push(url);
+    return { status: 200, json: {} };
+  };
+  const result = await arrDrop(settings, get, del)({
+    tmdbId: 550,
+    kind: "movie",
+    name: "Fight Club",
+    year: 1999,
+    posterPath: null,
+  });
+  assert.equal(result.ok, true);
+  assert.deepEqual(deleted, [
+    "http://radarr:7878/api/v3/movie/42?deleteFiles=true&addImportExclusion=false",
+  ]);
+});
+
+test("arrDrop series DELETEs with deleteFiles; not In Library skips DELETE", async () => {
+  const deleted: string[] = [];
+  const del: HttpDelete = async (url) => {
+    deleted.push(url);
+    return { status: 200, json: {} };
+  };
+  const inLib = fakeGet({
+    "/tv/1396/external_ids": { status: 200, json: { tvdb_id: 81189 } },
+    "/api/v3/series/lookup": { status: 200, json: [{ title: "Breaking Bad", id: 7, tvdbId: 81189 }] },
+  });
+  const dropped = await arrDrop(settings, inLib, del)({
+    tmdbId: 1396,
+    kind: "tv",
+    name: "Breaking Bad",
+    year: 2008,
+    posterPath: null,
+  });
+  assert.equal(dropped.ok, true);
+  assert.deepEqual(deleted, [
+    "http://sonarr:8989/api/v3/series/7?deleteFiles=true&addImportListExclusion=false",
+  ]);
+
+  deleted.length = 0;
+  const missing = fakeGet({
+    "/api/v3/movie/lookup": { status: 200, json: [{ title: "Fight Club", tmdbId: 550 }] },
+  });
+  const skip = await arrDrop(settings, missing, del)({
+    tmdbId: 550,
+    kind: "movie",
+    name: "Fight Club",
+    year: 1999,
+    posterPath: null,
+  });
+  assert.equal(skip.ok, true);
+  assert.deepEqual(deleted, []);
 });

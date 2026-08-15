@@ -1,4 +1,4 @@
-import type { AcquireFn, AcquireOpts, ArrError, LibraryLookup } from "./arr.ts";
+import type { AcquireFn, AcquireOpts, ArrError, DropFn, LibraryLookup } from "./arr.ts";
 import type { Store } from "./auth.ts";
 import type { ProgressLookup } from "./jellyfin.ts";
 import type { HouseholdSettings } from "./settings.ts";
@@ -36,9 +36,11 @@ export type AddResult =
   | { ok: false; error: AddError };
 
 export type Acquire = AcquireFn;
+export type Drop = DropFn;
 
 // ponytail: default ports for tests / covered-only paths.
 export const noopAcquire: Acquire = async () => ({ ok: true });
+export const noopDrop: Drop = async () => ({ ok: true });
 export const neverInLibrary: LibraryLookup = async () => ({ ok: true, inLibrary: false });
 
 export function parseWatchlistView(value: unknown): WatchlistView {
@@ -268,4 +270,29 @@ export async function syncJellyfinWatched(
   });
   if (marked > 0) await putItems(store, next);
   return { marked };
+}
+
+/**
+ * Admin Remove: drop *arr+files when In Library or was Acquired; Watchirr-only if streaming-only.
+ * keepFiles skips the *arr drop so disk copies stay (re-add sees In Library, no re-Acquire).
+ * Watched does not call this. Re-add after success is a fresh addTitle.
+ */
+export async function removeTitle(
+  store: Store,
+  tmdbId: number,
+  kind: TitleKind,
+  deps?: { drop?: Drop; keepFiles?: boolean },
+): Promise<{ ok: true } | { ok: false; error: ArrError }> {
+  const existing = await findItem(store, tmdbId, kind);
+  if (!existing) return { ok: true };
+  if (!deps?.keepFiles && (existing.inLibrary || existing.shouldAcquire)) {
+    const dropped = await (deps?.drop ?? noopDrop)(existing.title);
+    if (!dropped.ok) return dropped;
+  }
+  const items = await listItems(store);
+  await putItems(
+    store,
+    items.filter((i) => !(i.title.tmdbId === tmdbId && i.title.kind === kind)),
+  );
+  return { ok: true };
 }

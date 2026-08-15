@@ -5,6 +5,7 @@ export type ProbeError = "unreachable" | "unauthorized" | "failed";
 
 export type HttpResult = { status: number; json: unknown } | { error: "unreachable" };
 export type HttpGet = (url: string, headers: Record<string, string>) => Promise<HttpResult>;
+export type HttpDelete = HttpGet;
 export type HttpPost = (
   url: string,
   headers: Record<string, string>,
@@ -88,6 +89,20 @@ export async function defaultPut(
       method: "PUT",
       headers: { ...headers, "Content-Type": "application/json" },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    const json = await res.json().catch(() => null);
+    return { status: res.status, json };
+  } catch {
+    return { error: "unreachable" };
+  }
+}
+
+export async function defaultDelete(url: string, headers: Record<string, string>): Promise<HttpResult> {
+  try {
+    const res = await fetch(url, {
+      method: "DELETE",
+      headers,
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     const json = await res.json().catch(() => null);

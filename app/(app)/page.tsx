@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ExpandSeasons } from "./expand-seasons";
-import { markWatchedAction } from "./watched-actions";
+import { MarkWatched } from "./mark-watched";
+import { RemoveItem } from "./remove-item";
 import { access, currentLocale } from "@/lib/http";
 import { jellyfinProgress } from "@/lib/jellyfin";
 import { messages, type Messages } from "@/lib/locale";
@@ -16,14 +17,14 @@ function Art({ path }: { path: string | null }) {
   return src ? <img className="art" src={src} alt="" /> : <div className="art" aria-hidden="true" />;
 }
 
-function expandFail(t: Messages, error: string): string {
+function arrFail(t: Messages, error: string): string {
   if (error === "missing-seasons") return t.searchAddMissingSeasons;
   if (error === "missing-defaults") return t.searchAddMissingDefaults;
   if (error === "missing-tvdb") return t.searchAddMissingTvdb;
-  if (error === "not-found") return t.searchAddNotFound.replace("{service}", "Sonarr");
-  if (error === "arr-unauthorized") return t.searchAddArrUnauthorized.replace("{service}", "Sonarr");
+  if (error === "not-found") return t.searchAddNotFound.replace("{service}", "Radarr/Sonarr");
+  if (error === "arr-unauthorized") return t.searchAddArrUnauthorized.replace("{service}", "Radarr/Sonarr");
   if (error === "arr-unreachable" || error === "arr-failed") {
-    return t.searchAddArrFailed.replace("{service}", "Sonarr");
+    return t.searchAddArrFailed.replace("{service}", "Radarr/Sonarr");
   }
   return t.searchAddFailed;
 }
@@ -45,7 +46,7 @@ export default async function WatchlistPage({
 
   const all = await listItems(store);
   const items = filterItems(all, view);
-  const expandError = params.err ? expandFail(t, params.err) : undefined;
+  const arrError = params.err ? arrFail(t, params.err) : undefined;
 
   const tabs = [
     { view: "all" as const, label: t.watchlistAll },
@@ -58,7 +59,7 @@ export default async function WatchlistPage({
     <main className="main">
       <section className="panel glass wide">
         <h1 className="section-head">{t.navWatchlist}</h1>
-        {expandError ? <p className="error">{expandError}</p> : null}
+        {arrError ? <p className="error">{arrError}</p> : null}
         {all.length === 0 ? (
           <p className="muted">{t.watchlistEmpty}</p>
         ) : (
@@ -105,18 +106,27 @@ export default async function WatchlistPage({
                           </span>
                           <span className={tone}>{status}</span>
                           {item.inLibrary && hit.kind === "tv" && !item.watched ? (
-                            <ExpandSeasons tmdbId={hit.tmdbId} t={t} />
+                            <ExpandSeasons tmdbId={hit.tmdbId} title={hit.name} t={t} />
                           ) : null}
-                          {!item.watched ? (
-                            <form action={markWatchedAction} className="watched-form">
-                              <input type="hidden" name="tmdbId" value={hit.tmdbId} />
-                              <input type="hidden" name="kind" value={hit.kind} />
-                              <input type="hidden" name="view" value={view} />
-                              <button type="submit" className="season-open">
-                                {t.watchlistMarkWatched}
-                              </button>
-                            </form>
-                          ) : null}
+                          <div className="item-actions">
+                            {!item.watched ? (
+                              <MarkWatched
+                                tmdbId={hit.tmdbId}
+                                kind={hit.kind}
+                                view={view}
+                                title={hit.name}
+                                t={t}
+                              />
+                            ) : null}
+                            <RemoveItem
+                              tmdbId={hit.tmdbId}
+                              kind={hit.kind}
+                              view={view}
+                              title={hit.name}
+                              canKeepFiles={item.inLibrary || item.shouldAcquire}
+                              t={t}
+                            />
+                          </div>
                         </span>
                       </div>
                     </li>

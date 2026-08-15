@@ -15,6 +15,7 @@ import {
   markWatched,
   parseItems,
   parseWatchlistView,
+  removeTitle,
   syncJellyfinWatched,
   type CoverageLookup,
   type WatchlistItem,
@@ -385,4 +386,161 @@ test("Jellyfin progress > 0% matching a Watchlist Title sets Watched without Acq
     progress: async () => ({ ok: false, error: "jellyfin-unreachable" }),
   });
   assert.deepEqual(fail, { marked: 0 });
+});
+
+test("Remove local → *arr drop + Item gone; streaming-only skips *arr", async () => {
+  const local = {
+    tmdbId: 155,
+    kind: "movie" as const,
+    name: "The Dark Knight",
+    year: 2008,
+    posterPath: null,
+  };
+  const stream = {
+    tmdbId: 27205,
+    kind: "movie" as const,
+    name: "Inception",
+    year: 2010,
+    posterPath: null,
+  };
+  const inLib = {
+    tmdbId: 11216,
+    kind: "movie" as const,
+    name: "Cinema Paradiso",
+    year: 1988,
+    posterPath: null,
+  };
+  await addTitle(store, local, {
+    coverage: async () => ({ ok: true, services: [] }),
+    inLibrary: async () => ({ ok: true, inLibrary: false }),
+    acquire: async () => ({ ok: true }),
+  });
+  await addTitle(store, stream, {
+    coverage: async () => ({ ok: true, services: [{ id: 8, name: "Netflix" }] }),
+  });
+  await addTitle(store, inLib, {
+    coverage: async () => ({ ok: true, services: [] }),
+    inLibrary: async () => ({ ok: true, inLibrary: true }),
+    acquire: async () => ({ ok: true }),
+  });
+
+  const dropped: number[] = [];
+  const drop = async (title: { tmdbId: number }) => {
+    dropped.push(title.tmdbId);
+    return { ok: true } as const;
+  };
+
+  const localRm = await removeTitle(store, 155, "movie", { drop });
+  assert.equal(localRm.ok, true);
+  assert.equal(await findItem(store, 155, "movie"), null);
+
+  const streamRm = await removeTitle(store, 27205, "movie", { drop });
+  assert.equal(streamRm.ok, true);
+  assert.equal(await findItem(store, 27205, "movie"), null);
+
+  const libRm = await removeTitle(store, 11216, "movie", { drop });
+  assert.equal(libRm.ok, true);
+  assert.equal(await findItem(store, 11216, "movie"), null);
+
+  assert.deepEqual(dropped, [155, 11216]);
+});
+
+test("Watched does not Remove; drop failure keeps the Item", async () => {
+  const lonely = {
+    tmdbId: 807,
+    kind: "movie" as const,
+    name: "Se7en",
+    year: 1995,
+    posterPath: null,
+  };
+  await addTitle(store, lonely, {
+    coverage: async () => ({ ok: true, services: [] }),
+    inLibrary: async () => ({ ok: true, inLibrary: true }),
+  });
+  const marked = await markWatched(store, 807, "movie");
+  assert.equal(marked?.watched, true);
+  assert.equal((await findItem(store, 807, "movie"))?.title.tmdbId, 807);
+
+  const dropped: number[] = [];
+  const fail = await removeTitle(store, 807, "movie", {
+    drop: async (title) => {
+      dropped.push(title.tmdbId);
+      return { ok: false, error: "arr-unreachable" };
+    },
+  });
+  assert.deepEqual(fail, { ok: false, error: "arr-unreachable" });
+  assert.deepEqual(dropped, [807]);
+  assert.equal((await findItem(store, 807, "movie"))?.watched, true);
+});
+
+test("re-add after Remove runs coverage and can Acquire again", async () => {
+  const lonely = {
+    tmdbId: 120,
+    kind: "movie" as const,
+    name: "The Lord of the Rings",
+    year: 2001,
+    posterPath: null,
+  };
+  const acquires: number[] = [];
+  const deps = {
+    coverage: async () => ({ ok: true as const, services: [] }),
+    inLibrary: async () => ({ ok: true as const, inLibrary: false }),
+    acquire: async (title: { tmdbId: number }) => {
+      acquires.push(title.tmdbId);
+      return { ok: true as const };
+    },
+  };
+  const first = await addTitle(store, lonely, deps);
+  assert.equal(first.ok, true);
+  if (!first.ok) return;
+  assert.equal(first.acquired, true);
+  assert.deepEqual(acquires, [120]);
+
+  const rm = await removeTitle(store, 120, "movie", { drop: async () => ({ ok: true }) });
+  assert.equal(rm.ok, true);
+  assert.equal(await findItem(store, 120, "movie"), null);
+
+  const again = await addTitle(store, lonely, deps);
+  assert.equal(again.ok, true);
+  if (!again.ok) return;
+  assert.equal(again.existed, false);
+  assert.equal(again.acquired, true);
+  assert.deepEqual(acquires, [120, 120]);
+});
+
+test("Remove keep files skips *arr drop; re-add does not Acquire while In Library", async () => {
+  const lonely = {
+    tmdbId: 629,
+    kind: "movie" as const,
+    name: "The Usual Suspects",
+    year: 1995,
+    posterPath: null,
+  };
+  const dropped: number[] = [];
+  const acquires: number[] = [];
+  const deps = {
+    coverage: async () => ({ ok: true as const, services: [] }),
+    inLibrary: async () => ({ ok: true as const, inLibrary: true }),
+    acquire: async (title: { tmdbId: number }) => {
+      acquires.push(title.tmdbId);
+      return { ok: true as const };
+    },
+  };
+  await addTitle(store, lonely, deps);
+  const rm = await removeTitle(store, 629, "movie", {
+    keepFiles: true,
+    drop: async (title) => {
+      dropped.push(title.tmdbId);
+      return { ok: true };
+    },
+  });
+  assert.equal(rm.ok, true);
+  assert.equal(await findItem(store, 629, "movie"), null);
+  assert.deepEqual(dropped, []);
+
+  const again = await addTitle(store, lonely, deps);
+  assert.equal(again.ok, true);
+  if (!again.ok) return;
+  assert.equal(again.acquired, false);
+  assert.deepEqual(acquires, []);
 });

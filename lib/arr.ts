@@ -1,13 +1,16 @@
 import {
   classify,
+  defaultDelete,
   defaultGet,
   defaultPost,
   defaultPut,
   joinUrl,
   TMDB,
+  type HttpDelete,
   type HttpGet,
   type HttpPost,
   type HttpPut,
+  type HttpResult,
   type ProbeError,
 } from "./connect.ts";
 import type { ArrSettings, HouseholdSettings } from "./settings.ts";
@@ -44,6 +47,7 @@ export type SeasonsResult =
 
 export type LibraryLookup = (title: Title) => Promise<LibraryResult>;
 export type AcquireFn = (title: Title, opts?: AcquireOpts) => Promise<AcquireResult>;
+export type DropFn = (title: Title) => Promise<AcquireResult>;
 
 function arrHeaders(apiKey: string): Record<string, string> {
   return { "X-Api-Key": apiKey.trim(), Accept: "application/json" };
@@ -336,5 +340,52 @@ export function arrAcquire(
     const res = await post(joinUrl(settings.sonarr.url, "/api/v3/series"), arrHeaders(settings.sonarr.apiKey), body);
     const status = classify(res);
     return status === "ok" ? { ok: true } : { ok: false, error: asArrError(status) };
+  };
+}
+
+function dropResult(res: HttpResult): AcquireResult {
+  const status = classify(res);
+  if (status === "ok" || (!("error" in res) && res.status === 404)) return { ok: true };
+  return { ok: false, error: asArrError(status) };
+}
+
+/** Admin Remove: drop from *arr and delete files. Missing / already-gone is success so Watchirr can clear. */
+export function arrDrop(
+  settings: HouseholdSettings,
+  get: HttpGet = defaultGet,
+  del: HttpDelete = defaultDelete,
+): DropFn {
+  return async (title) => {
+    if (title.kind === "movie") {
+      if (!arrReachable(settings.radarr)) return { ok: false, error: "missing-defaults" };
+      const looked = await radarrLookup(settings.radarr.url, settings.radarr.apiKey, title.tmdbId, get);
+      if (!looked.ok) return looked.error === "not-found" ? { ok: true } : looked;
+      const id = num(looked.hit.id);
+      if (!looked.inLibrary || !id) return { ok: true };
+      const res = await del(
+        joinUrl(
+          settings.radarr.url,
+          `/api/v3/movie/${id}?deleteFiles=true&addImportExclusion=false`,
+        ),
+        arrHeaders(settings.radarr.apiKey),
+      );
+      return dropResult(res);
+    }
+
+    if (!arrReachable(settings.sonarr)) return { ok: false, error: "missing-defaults" };
+    const tvdb = await tvdbIdForTmdb(settings.tmdbApiKey, title.tmdbId, get);
+    if (!tvdb.ok) return tvdb;
+    const looked = await sonarrLookup(settings.sonarr.url, settings.sonarr.apiKey, tvdb.tvdbId, get);
+    if (!looked.ok) return looked.error === "not-found" ? { ok: true } : looked;
+    const id = num(looked.hit.id);
+    if (!looked.inLibrary || !id) return { ok: true };
+    const res = await del(
+      joinUrl(
+        settings.sonarr.url,
+        `/api/v3/series/${id}?deleteFiles=true&addImportListExclusion=false`,
+      ),
+      arrHeaders(settings.sonarr.apiKey),
+    );
+    return dropResult(res);
   };
 }
