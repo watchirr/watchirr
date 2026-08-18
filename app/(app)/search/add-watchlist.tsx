@@ -1,6 +1,7 @@
 "use client";
 
 import type { ArrLists, NamedId } from "@/lib/connect";
+import type { DiscoverRailId } from "@/lib/discover";
 import type { Messages } from "@/lib/locale";
 import type { ArrSettings } from "@/lib/settings";
 import type { Title } from "@/lib/tmdb";
@@ -75,6 +76,7 @@ export function AddWatchlist({
   hit,
   q,
   personId,
+  fromList,
   t,
   radarr,
   sonarr,
@@ -84,6 +86,7 @@ export function AddWatchlist({
   hit: Title;
   q: string;
   personId?: number;
+  fromList?: { rail: DiscoverRailId; page: number };
   t: Messages;
   radarr: ArrSettings;
   sonarr: ArrSettings & { languageProfileId: number | null };
@@ -109,6 +112,12 @@ export function AddWatchlist({
       <input type="hidden" name="posterPath" value={hit.posterPath ?? ""} />
       <input type="hidden" name="q" value={q} />
       {personId ? <input type="hidden" name="person" value={personId} /> : null}
+      {fromList ? (
+        <>
+          <input type="hidden" name="rail" value={fromList.rail} />
+          <input type="hidden" name="page" value={String(fromList.page)} />
+        </>
+      ) : null}
       <AcquireFields
         hit={hit}
         t={t}

@@ -5,15 +5,22 @@ export function PublicRatingSlots({
   ratings,
   t,
   compact,
+  loading,
 }: {
   ratings: PublicRatings;
   t: Messages;
   compact?: boolean;
+  loading?: boolean;
 }) {
-  const imdb = ratings.imdb == null ? t.ratingUnavailable : String(ratings.imdb);
-  const tomato = ratings.tomato == null ? t.ratingUnavailable : `${ratings.tomato}%`;
+  const imdb = loading ? t.ratingLoading : ratings.imdb == null ? t.ratingUnavailable : String(ratings.imdb);
+  const tomato = loading ? t.ratingLoading : ratings.tomato == null ? t.ratingUnavailable : `${ratings.tomato}%`;
+  const cls = compact ? "ratings ratings-compact" : "ratings";
   return (
-    <span className={compact ? "ratings ratings-compact" : "ratings"} aria-label={`${t.ratingImdb} ${imdb}, ${t.ratingTomato} ${tomato}`}>
+    <span
+      className={loading ? `${cls} is-loading` : cls}
+      aria-busy={loading || undefined}
+      aria-label={`${t.ratingImdb} ${imdb}, ${t.ratingTomato} ${tomato}`}
+    >
       <span className="rating-slot">
         <span className="rating-label">{t.ratingImdb}</span>
         <span className="rating-value">{imdb}</span>
