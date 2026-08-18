@@ -60,7 +60,8 @@ export function parseWatchlistSection(value: unknown): WatchlistSection {
 
 export function filterItems(items: WatchlistItem[], view: WatchlistView): WatchlistItem[] {
   if (view === "covered") return items.filter((i) => !i.shouldAcquire && !i.inLibrary);
-  if (view === "library") return items.filter((i) => i.inLibrary);
+  // Acquire success leaves shouldAcquire set; that Title is already on *arr (ADR 0007).
+  if (view === "library") return items.filter((i) => i.inLibrary || i.shouldAcquire);
   return items;
 }
 

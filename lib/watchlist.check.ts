@@ -10,6 +10,7 @@ import {
   addTitle,
   byKind,
   expandSeasons,
+  filterCounts,
   filterItems,
   findItem,
   listItems,
@@ -120,8 +121,13 @@ test("parseWatchlistView and filterItems distinguish Covered vs In Library", () 
   );
   assert.deepEqual(
     filterItems(items, "library").map((i) => i.title.tmdbId),
-    [11],
+    [1396, 11],
   );
+  const counts = filterCounts(items);
+  assert.equal(counts.all, 4);
+  assert.equal(counts.covered, 2);
+  assert.equal(counts.library, 2);
+  assert.equal(counts.covered + counts.library, counts.all);
   assert.equal(parseItems("nope").length, 0);
 });
 
