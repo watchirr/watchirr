@@ -1,6 +1,6 @@
 :root {
   --ink: #0e2433;
-  --muted: #5a7180;
+  --muted: #54697a;
   --brand: #0d8f9f;
   --brand-deep: #08707c;
   --warn: #c45c16;
@@ -53,7 +53,8 @@ a {
 
 .wordmark em {
   font-style: italic;
-  color: var(--brand);
+  /* ponytail: one step darker than --brand-deep so glass median ≥3:1. Pixel p10 on backdrop-filter stays ~1.1:1 without flattening glass. */
+  color: #065a63;
 }
 
 .glass {
@@ -506,7 +507,7 @@ select:focus {
   font-size: 0.95rem;
   font-weight: 600;
   color: #fff;
-  background: rgba(13, 143, 159, 0.9);
+  background: var(--brand-deep);
   border: 1px solid rgba(13, 143, 159, 0.35);
   border-radius: 12px;
   padding: 0.75rem 1rem;
@@ -622,11 +623,14 @@ select:focus {
 }
 
 .season-open {
-  display: inline-flex;
-  align-items: center;
+  display: inline-block;
   margin-top: 0.35rem;
   width: auto;
   max-width: 100%;
+  min-width: 0;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.25;
 }
 
 .item-actions {
@@ -659,6 +663,22 @@ select:focus {
   background: transparent;
   max-width: min(22rem, calc(100vw - 2rem));
   width: 100%;
+  transform-origin: center;
+  opacity: 0;
+  transition:
+    opacity 280ms var(--ease-out),
+    overlay 280ms var(--ease-out) allow-discrete,
+    display 280ms var(--ease-out) allow-discrete;
+}
+
+.action-dialog[open] {
+  opacity: 1;
+}
+
+@starting-style {
+  .action-dialog[open] {
+    opacity: 0;
+  }
 }
 
 .action-dialog.is-wide {
@@ -667,6 +687,43 @@ select:focus {
 
 .action-dialog::backdrop {
   background: rgba(14, 36, 51, 0.45);
+  opacity: 0;
+  transition:
+    opacity 280ms var(--ease-out),
+    overlay 280ms var(--ease-out) allow-discrete,
+    display 280ms var(--ease-out) allow-discrete;
+}
+
+.action-dialog[open]::backdrop {
+  opacity: 1;
+}
+
+@starting-style {
+  .action-dialog[open]::backdrop {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .action-dialog {
+    transform: scale(0.96);
+    transition:
+      opacity 280ms var(--ease-out),
+      transform 280ms var(--ease-out),
+      overlay 280ms var(--ease-out) allow-discrete,
+      display 280ms var(--ease-out) allow-discrete;
+  }
+
+  .action-dialog[open] {
+    transform: scale(1);
+  }
+
+  @starting-style {
+    .action-dialog[open] {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+  }
 }
 
 .action-dialog-form {
@@ -1382,6 +1439,16 @@ button.rail-card {
   .kind-filter-ink {
     transition: clip-path 200ms var(--ease-in-out);
   }
+
+  .season-chip,
+  .season-open {
+    transition: transform 160ms var(--ease-out);
+  }
+
+  .season-chip:active,
+  .season-open:active {
+    transform: scale(0.97);
+  }
 }
 
 @supports selector(:active-view-transition) {
@@ -1575,7 +1642,7 @@ button.rail-card {
   }
 
   .btn:hover {
-    background: var(--brand-deep);
+    background: #065a63;
   }
 
   .btn.secondary:hover {
@@ -1628,12 +1695,29 @@ button.rail-card {
   a.hit:active,
   .cast-rail-item:active,
   .rail-card:active,
-  .kind-filter:has(button:active) {
+  .kind-filter:has(button:active),
+  .season-chip:active,
+  .season-open:active {
     transform: none;
   }
 
   .rail-nav:active {
     transform: translateY(-50%);
+  }
+
+  .action-dialog {
+    transform: none;
+    transition:
+      opacity 160ms var(--ease-out),
+      overlay 160ms var(--ease-out) allow-discrete,
+      display 160ms var(--ease-out) allow-discrete;
+  }
+
+  .action-dialog::backdrop {
+    transition:
+      opacity 160ms var(--ease-out),
+      overlay 160ms var(--ease-out) allow-discrete,
+      display 160ms var(--ease-out) allow-discrete;
   }
 
   ::view-transition-group(*),
