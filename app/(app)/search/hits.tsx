@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import { flushSync } from "react-dom";
+import { PublicRatingSlots } from "@/app/public-rating-slots";
 import type { ArrLists } from "@/lib/connect";
 import type { Messages } from "@/lib/locale";
+import type { PublicRatings } from "@/lib/ratings";
+import { absentRatings, titleKey } from "@/lib/ratings";
 import type { ArrSettings } from "@/lib/settings";
 import { posterUrl, type Title } from "@/lib/tmdb";
 import { AddWatchlist } from "./add-watchlist";
@@ -47,6 +50,7 @@ function Meta({
   sonarr,
   radarrLists,
   sonarrLists,
+  ratings,
 }: {
   hit: Title;
   t: Messages;
@@ -57,6 +61,7 @@ function Meta({
   sonarr: ArrSettings & { languageProfileId: number | null };
   radarrLists: ArrLists;
   sonarrLists: ArrLists;
+  ratings: PublicRatings;
 }) {
   return (
     <span className="meta">
@@ -64,6 +69,7 @@ function Meta({
       <span className="name">{hit.name}</span>
       <span className="sub">{[hit.year, kindLabel(t, hit.kind)].filter(Boolean).join(" · ")}</span>
       <span className="sub extra">TMDB {hit.tmdbId}</span>
+      <PublicRatingSlots ratings={ratings} t={t} />
       {saved ? (
         <span className="sub">{t.searchOnList}</span>
       ) : (
@@ -94,6 +100,7 @@ export function SearchHits({
   sonarr,
   radarrLists,
   sonarrLists,
+  ratingsByKey,
 }: {
   titles: Title[];
   q: string;
@@ -106,9 +113,14 @@ export function SearchHits({
   sonarr: ArrSettings & { languageProfileId: number | null };
   radarrLists: ArrLists;
   sonarrLists: ArrLists;
+  ratingsByKey: Record<string, PublicRatings>;
 }) {
   const [selected, setSelected] = useState(initial);
   const listed = new Set(onList);
+
+  function ratingsFor(hit: Title): PublicRatings {
+    return ratingsByKey[titleKey(hit)] ?? absentRatings;
+  }
 
   function pick(hit: Title) {
     if (selected?.tmdbId === hit.tmdbId && selected.kind === hit.kind) return;
@@ -133,6 +145,7 @@ export function SearchHits({
         {titles.map((hit) => {
           const on = selected?.tmdbId === hit.tmdbId && selected.kind === hit.kind;
           const saved = listed.has(keyOf(hit));
+          const ratings = ratingsFor(hit);
           return (
             <li
               key={hitId(hit)}
@@ -152,6 +165,7 @@ export function SearchHits({
                     sonarr={sonarr}
                     radarrLists={radarrLists}
                     sonarrLists={sonarrLists}
+                    ratings={ratings}
                   />
                 </div>
               ) : (
@@ -162,6 +176,7 @@ export function SearchHits({
                     <span className="name">{hit.name}</span>
                     <span className="sub">{[hit.year, kindLabel(t, hit.kind)].filter(Boolean).join(" · ")}</span>
                     <span className="sub extra">TMDB {hit.tmdbId}</span>
+                    <PublicRatingSlots ratings={ratings} t={t} compact />
                   </span>
                 </button>
               )}

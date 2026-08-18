@@ -14,6 +14,7 @@ import type { HouseholdSettings } from "./settings.ts";
 
 const settings: HouseholdSettings = {
   tmdbApiKey: "tmdb-key",
+  omdbApiKey: "",
   country: "US",
   paidServiceIds: [8],
   radarr: {

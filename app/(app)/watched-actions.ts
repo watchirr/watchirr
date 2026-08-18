@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import { access } from "@/lib/http";
 import { num, str } from "@/lib/settings";
 import { isTitleKind } from "@/lib/tmdb";
-import { markWatched } from "@/lib/watchlist";
+import { parseWatchlistSection, parseWatchlistView, markWatched } from "@/lib/watchlist";
+import { watchlistHref } from "./watchlist-path";
 
 export async function markWatchedAction(formData: FormData): Promise<void> {
   const { store, access: gate } = await access();
@@ -17,6 +18,7 @@ export async function markWatchedAction(formData: FormData): Promise<void> {
 
   await markWatched(store, tmdbId, kindRaw);
   revalidatePath("/");
-  const view = str(formData.get("view"));
-  redirect(view === "watched" || view === "covered" || view === "acquire" ? `/?view=${view}` : "/");
+  const section = parseWatchlistSection(str(formData.get("section")));
+  const view = parseWatchlistView(str(formData.get("view")));
+  redirect(watchlistHref({ section, view }));
 }

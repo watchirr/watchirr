@@ -40,6 +40,7 @@ test("parseSettings fills defaults; roundtrip keeps Admin picks", () => {
   const saved = parseSettings(
     JSON.stringify({
       tmdbApiKey: "  k  ",
+      omdbApiKey: "  omdb  ",
       country: "br",
       paidServiceIds: [8, "9", 8, 0, "x"],
       radarr: { url: "http://radarr:7878/", apiKey: "r", rootFolder: "/movies", qualityProfileId: 4 },
@@ -54,6 +55,7 @@ test("parseSettings fills defaults; roundtrip keeps Admin picks", () => {
     }),
   );
   assert.equal(saved.tmdbApiKey, "k");
+  assert.equal(saved.omdbApiKey, "omdb");
   assert.equal(saved.country, "BR");
   assert.deepEqual(saved.paidServiceIds, [8, 9]);
   assert.equal(saved.radarr.qualityProfileId, 4);
@@ -73,6 +75,7 @@ test("settings persist on the store and reload", async () => {
 test("settingsFromForm reads Paid Services multi-select and *arr defaults", () => {
   const form = new FormData();
   form.set("tmdbApiKey", "k");
+  form.set("omdbApiKey", "omdb-key");
   form.set("country", "us");
   form.append("paidServiceIds", "8");
   form.append("paidServiceIds", "9");
@@ -89,6 +92,7 @@ test("settingsFromForm reads Paid Services multi-select and *arr defaults", () =
   form.set("jellyfinApiKey", "jk");
   const s = settingsFromForm(form);
   assert.equal(s.country, "US");
+  assert.equal(s.omdbApiKey, "omdb-key");
   assert.deepEqual(s.paidServiceIds, [8, 9]);
   assert.equal(s.radarr.qualityProfileId, 4);
   assert.equal(s.sonarr.languageProfileId, 1);

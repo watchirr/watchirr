@@ -9,6 +9,7 @@ export function RemoveItem({
   tmdbId,
   kind,
   view,
+  section,
   title,
   canKeepFiles,
   t,
@@ -16,6 +17,7 @@ export function RemoveItem({
   tmdbId: number;
   kind: TitleKind;
   view: string;
+  section: string;
   title: string;
   canKeepFiles: boolean;
   t: Messages;
@@ -32,6 +34,7 @@ export function RemoveItem({
       <input type="hidden" name="tmdbId" value={tmdbId} />
       <input type="hidden" name="kind" value={kind} />
       <input type="hidden" name="view" value={view} />
+      <input type="hidden" name="section" value={section} />
       {canKeepFiles ? (
         <label className="keep-files">
           <input type="checkbox" name="keepFiles" value="1" className="season-check" />
