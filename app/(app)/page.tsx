@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PublicRatingSlots } from "../public-rating-slots";
+import { TitleRail } from "../title-rail";
 import { ExpandSeasons } from "./expand-seasons";
 import { MarkWatched } from "./mark-watched";
 import { RemoveItem } from "./remove-item";
@@ -237,7 +238,7 @@ export default async function WatchlistPage({
                 {rail.length > 0 ? (
                   <>
                     <h2 className="section-head">{t.watchlistAlsoInSection}</h2>
-                    <ul className="title-rail" aria-label={t.watchlistAlsoInSection}>
+                    <TitleRail label={t.watchlistAlsoInSection} prevLabel={t.railPrev} nextLabel={t.railNext}>
                       {rail.map((item) => {
                         const hit = item.title;
                         const status = statusLine(item, t);
@@ -246,6 +247,11 @@ export default async function WatchlistPage({
                             <div className="rail-card">
                               <Art path={hit.posterPath} />
                               <span className="name">{hit.name}</span>
+                              <span className="sub">
+                                {[hit.year, hit.kind === "movie" ? t.searchKindMovie : t.searchKindTv]
+                                  .filter(Boolean)
+                                  .join(" · ")}
+                              </span>
                               <span className={status.tone}>{status.text}</span>
                               <PublicRatingSlots ratings={ratingsFor(item)} t={t} compact />
                               <ItemActions item={item} view={view} section={section} t={t} />
@@ -253,7 +259,7 @@ export default async function WatchlistPage({
                           </li>
                         );
                       })}
-                    </ul>
+                    </TitleRail>
                   </>
                 ) : null}
               </>

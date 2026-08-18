@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { probeArr } from "@/lib/connect";
+import { DISCOVER_RAILS, discoverCatalog, type DiscoverRailId } from "@/lib/discover";
 import { access, currentLocale, currentTitleKind } from "@/lib/http";
 import { messages, type Messages } from "@/lib/locale";
 import { getSettings, num, str } from "@/lib/settings";
@@ -12,16 +13,10 @@ import {
   searchTitles,
   type Person,
   type SearchError,
+  type Title,
 } from "@/lib/tmdb";
 import { listItems } from "@/lib/watchlist";
-import {
-  asRef,
-  getRatingsCache,
-  ratingsDepsFromStore,
-  resolveMany,
-  type PublicRatings,
-} from "@/lib/ratings";
-import { SearchHits } from "./hits";
+import { DiscoverRails, SearchHits } from "./hits";
 
 export const dynamic = "force-dynamic";
 
@@ -70,42 +65,58 @@ export default async function SearchPage({
   const personId = num(params.person);
   const settings = await getSettings(store);
   const key = settings.tmdbApiKey;
+  const discoverHome = !q && !personId;
 
   const cast = personId ? await personCast(key, personId, locale, kind) : null;
-  const [titlesResult, peopleResult, radarrProbe, sonarrProbe] = cast
+  const [titlesResult, peopleResult, radarrProbe, sonarrProbe, catalog] = cast
     ? await Promise.all([
         Promise.resolve(null),
         Promise.resolve(null),
         probeArr("radarr", settings.radarr.url, settings.radarr.apiKey),
         probeArr("sonarr", settings.sonarr.url, settings.sonarr.apiKey),
+        Promise.resolve(null),
       ])
     : await Promise.all([
-        searchTitles(key, q, locale, kind),
+        discoverHome ? Promise.resolve(null) : searchTitles(key, q, locale, kind),
         q ? searchPeople(key, q, locale) : Promise.resolve(null),
         probeArr("radarr", settings.radarr.url, settings.radarr.apiKey),
         probeArr("sonarr", settings.sonarr.url, settings.sonarr.apiKey),
+        discoverHome
+          ? Promise.all(
+              DISCOVER_RAILS.map((rail) =>
+                discoverCatalog({
+                  apiKey: key,
+                  language: locale,
+                  filter: kind,
+                  country: settings.country,
+                  rail,
+                  page: 1,
+                }),
+              ),
+            )
+          : Promise.resolve(null),
       ]);
 
-  const error = !cast && titlesResult && !titlesResult.ok ? titlesResult.error : cast && !cast.ok ? cast.error : undefined;
+  const failedRail = catalog?.find((row) => !row.ok);
+  const discoverError = failedRail && !failedRail.ok ? failedRail.error : undefined;
+  const discoverRails: { id: DiscoverRailId; titles: Title[] }[] =
+    catalog && !discoverError
+      ? DISCOVER_RAILS.map((id, i) => ({ id, titles: catalog[i]!.ok ? catalog[i]!.titles : [] }))
+      : [];
+  const error =
+    discoverError ??
+    (!cast && titlesResult && !titlesResult.ok ? titlesResult.error : cast && !cast.ok ? cast.error : undefined);
   const titles = cast?.ok ? cast.titles : titlesResult?.ok ? titlesResult.titles : [];
   const people = peopleResult?.ok ? peopleResult.people : [];
   const person = cast?.ok ? cast.person : undefined;
   const ref = parseTitleRef(params.tmdb, params.kind);
-  const selected = ref ? titles.find((hit) => hit.tmdbId === ref.tmdbId && hit.kind === ref.kind) : undefined;
+  const pool = discoverHome ? discoverRails.flatMap((rail) => rail.titles) : titles;
+  const selected = ref ? pool.find((hit) => hit.tmdbId === ref.tmdbId && hit.kind === ref.kind) : undefined;
   const onList = (await listItems(store)).map((i) => `${i.title.kind}:${i.title.tmdbId}`);
   const addError = params.err ? addFail(t, params.err, params.kind) : undefined;
   const blankLists = { ready: false, qualityProfiles: [], rootFolders: [], languageProfiles: null };
   const radarrLists = radarrProbe.ok && !radarrProbe.skipped ? radarrProbe.data : blankLists;
   const sonarrLists = sonarrProbe.ok && !sonarrProbe.skipped ? sonarrProbe.data : blankLists;
-
-  const cache = await getRatingsCache(store);
-  const ratingDeps = ratingsDepsFromStore(store, settings, cache);
-  const ratingMap = await resolveMany(
-    titles.map((hit) => asRef(hit)),
-    ratingDeps,
-  );
-  const ratingsByKey: Record<string, PublicRatings> = {};
-  for (const [key, ratings] of ratingMap) ratingsByKey[key] = ratings;
 
   return (
     <main className="main">
@@ -150,6 +161,19 @@ export default async function SearchPage({
             </ul>
           </>
         ) : null}
+        {!error && discoverHome ? (
+          <DiscoverRails
+            rails={discoverRails}
+            selected={selected}
+            onList={onList}
+            addError={addError}
+            t={t}
+            radarr={settings.radarr}
+            sonarr={settings.sonarr}
+            radarrLists={radarrLists}
+            sonarrLists={sonarrLists}
+          />
+        ) : null}
         {!error && q && !person && titles.length === 0 && people.length === 0 ? <p className="muted">{t.searchEmpty}</p> : null}
         {!error && person && titles.length === 0 ? <p className="muted">{t.searchCastEmpty}</p> : null}
         {titles.length > 0 ? (
@@ -167,7 +191,6 @@ export default async function SearchPage({
               sonarr={settings.sonarr}
               radarrLists={radarrLists}
               sonarrLists={sonarrLists}
-              ratingsByKey={ratingsByKey}
             />
           </>
         ) : null}

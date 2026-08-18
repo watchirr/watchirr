@@ -93,6 +93,20 @@ export const messages = {
   ratingImdb: "IMDb",
   ratingTomato: "Tomatometer",
   ratingUnavailable: "—",
+  ratingLoading: "…",
+  searchCoverageLoading: "Checking Streaming Coverage…",
+  searchCoverageNone: "Not on Paid Services",
+  searchCoverageUnknown: "Streaming Coverage unavailable",
+  discoverTitle: "Discover",
+  discoverTrending: "Trending",
+  discoverPopular: "Popular",
+  discoverJustReleased: "Just released",
+  discoverUpcoming: "Upcoming",
+  discoverSeeMore: "See more",
+  discoverListEmpty: "No Titles in this Discover list.",
+  discoverPage: "Page {page}",
+  railPrev: "Previous",
+  railNext: "Next",
 } as const;
 
 export type Messages = { [K in keyof typeof messages]: string };
