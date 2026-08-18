@@ -11,6 +11,7 @@ export type ArrSettings = {
 
 export type HouseholdSettings = {
   tmdbApiKey: string;
+  omdbApiKey: string;
   country: string;
   paidServiceIds: number[];
   radarr: ArrSettings;
@@ -22,6 +23,7 @@ const emptyArr: ArrSettings = { url: "", apiKey: "", rootFolder: "", qualityProf
 
 export const emptySettings: HouseholdSettings = {
   tmdbApiKey: "",
+  omdbApiKey: "",
   country: "",
   paidServiceIds: [],
   radarr: { ...emptyArr },
@@ -68,6 +70,7 @@ export function parseSettings(raw: string | null | undefined): HouseholdSettings
     const jelly = o.jellyfin && typeof o.jellyfin === "object" ? (o.jellyfin as Record<string, unknown>) : {};
     return {
       tmdbApiKey: str(o.tmdbApiKey),
+      omdbApiKey: str(o.omdbApiKey),
       country: str(o.country).toUpperCase().replace(/[^A-Z]/g, "").slice(0, 2),
       paidServiceIds: uniqueInts(Array.isArray(o.paidServiceIds) ? o.paidServiceIds : []),
       radarr: arrFrom(o.radarr),
@@ -86,6 +89,7 @@ export function serializeSettings(settings: HouseholdSettings): string {
 export function settingsFromForm(formData: FormData): HouseholdSettings {
   return {
     tmdbApiKey: str(formData.get("tmdbApiKey")),
+    omdbApiKey: str(formData.get("omdbApiKey")),
     country: str(formData.get("country")).toUpperCase().replace(/[^A-Z]/g, "").slice(0, 2),
     paidServiceIds: uniqueInts(formData.getAll("paidServiceIds")),
     radarr: {

@@ -149,7 +149,7 @@ Without TMDB, Search cannot load Titles.
 
 When an OMDb API key is set in Settings, Watchirr can resolve **Public Ratings** for a Title: **IMDb Rating** (0–10) and **Tomatometer** (critics %). These are catalog signals, not Household opinions. Want / Streaming Coverage / Acquire / Watched / Remove do **not** require OMDb. Without a key, Public Ratings stay absent and Still-to-watch featuring falls back to last added.
 
-The Settings field and Title-surface ratings ship with the Public Ratings work (tickets 10–12). Until that field appears, skip OMDb — the rest of this guide still applies.
+Enter the key under **Settings → OMDb**. Leave it blank to skip Public Ratings.
 
 ## Locale
 

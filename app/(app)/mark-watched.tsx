@@ -9,12 +9,14 @@ export function MarkWatched({
   tmdbId,
   kind,
   view,
+  section,
   title,
   t,
 }: {
   tmdbId: number;
   kind: TitleKind;
   view: string;
+  section: string;
   title: string;
   t: Messages;
 }) {
@@ -30,6 +32,7 @@ export function MarkWatched({
       <input type="hidden" name="tmdbId" value={tmdbId} />
       <input type="hidden" name="kind" value={kind} />
       <input type="hidden" name="view" value={view} />
+      <input type="hidden" name="section" value={section} />
     </ActionDialog>
   );
 }

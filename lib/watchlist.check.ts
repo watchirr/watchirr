@@ -8,14 +8,17 @@ import { openStore } from "./auth.ts";
 import { flatrateCoverage } from "./tmdb.ts";
 import {
   addTitle,
+  byKind,
   expandSeasons,
   filterItems,
   findItem,
   listItems,
   markWatched,
   parseItems,
+  parseWatchlistSection,
   parseWatchlistView,
   removeTitle,
+  sectionItems,
   syncJellyfinWatched,
   type CoverageLookup,
   type WatchlistItem,
@@ -68,10 +71,12 @@ test("flatrateCoverage intersects Paid Services; rent/buy alone is not coverage"
   assert.deepEqual(flatrateCoverage(json, "US", []), []);
 });
 
-test("parseWatchlistView and filterItems distinguish covered vs needs-Acquire vs Watched", () => {
+test("parseWatchlistView and filterItems distinguish Covered vs In Library", () => {
   assert.equal(parseWatchlistView("covered"), "covered");
-  assert.equal(parseWatchlistView("acquire"), "acquire");
-  assert.equal(parseWatchlistView("watched"), "watched");
+  assert.equal(parseWatchlistView("covered", 0), "all");
+  assert.equal(parseWatchlistView("library"), "library");
+  assert.equal(parseWatchlistView("acquire"), "all");
+  assert.equal(parseWatchlistView("watched"), "all");
   assert.equal(parseWatchlistView("nope"), "all");
 
   const items: WatchlistItem[] = [
@@ -111,17 +116,94 @@ test("parseWatchlistView and filterItems distinguish covered vs needs-Acquire vs
   assert.equal(filterItems(items, "all").length, 4);
   assert.deepEqual(
     filterItems(items, "covered").map((i) => i.title.tmdbId),
+    [550, 680],
+  );
+  assert.deepEqual(
+    filterItems(items, "library").map((i) => i.title.tmdbId),
+    [11],
+  );
+  assert.equal(parseItems("nope").length, 0);
+});
+
+test("watch status sections: All / Not watched / Watched", () => {
+  const items: WatchlistItem[] = [
+    {
+      title: fight,
+      services: [{ id: 8, name: "Netflix" }],
+      shouldAcquire: false,
+      inLibrary: false,
+      watched: false,
+      addedAt: 2,
+    },
+    {
+      title: bad,
+      services: [],
+      shouldAcquire: true,
+      inLibrary: false,
+      watched: false,
+      addedAt: 1,
+    },
+    {
+      title: { tmdbId: 11, kind: "movie", name: "Star Wars", year: 1977, posterPath: null },
+      services: [],
+      shouldAcquire: false,
+      inLibrary: true,
+      watched: false,
+      addedAt: 0,
+    },
+    {
+      title: { tmdbId: 680, kind: "movie", name: "Pulp Fiction", year: 1994, posterPath: null },
+      services: [{ id: 8, name: "Netflix" }],
+      shouldAcquire: false,
+      inLibrary: false,
+      watched: true,
+      addedAt: 3,
+    },
+  ];
+  assert.equal(parseWatchlistSection("unwatched"), "unwatched");
+  assert.equal(parseWatchlistSection("still"), "unwatched");
+  assert.equal(parseWatchlistSection("watched"), "watched");
+  assert.equal(parseWatchlistSection("coming"), "all");
+  assert.equal(parseWatchlistSection("nope"), "all");
+  assert.equal(sectionItems(items, "all").length, 4);
+  assert.deepEqual(
+    sectionItems(items, "unwatched").map((i) => i.title.tmdbId),
+    [550, 1396, 11],
+  );
+  assert.deepEqual(
+    sectionItems(items, "watched").map((i) => i.title.tmdbId),
+    [680],
+  );
+});
+
+test("byKind scopes listings to the app-wide Movie / TV pick", () => {
+  const items: WatchlistItem[] = [
+    {
+      title: fight,
+      services: [],
+      shouldAcquire: true,
+      inLibrary: false,
+      watched: false,
+      addedAt: 2,
+    },
+    {
+      title: bad,
+      services: [],
+      shouldAcquire: true,
+      inLibrary: false,
+      watched: false,
+      addedAt: 1,
+    },
+  ];
+  assert.equal(byKind(items, "all").length, 2);
+  assert.deepEqual(
+    byKind(items, "movie").map((i) => i.title.tmdbId),
     [550],
   );
   assert.deepEqual(
-    filterItems(items, "acquire").map((i) => i.title.tmdbId),
+    byKind(items, "tv").map((i) => i.title.tmdbId),
     [1396],
   );
-  assert.deepEqual(
-    filterItems(items, "watched").map((i) => i.title.tmdbId),
-    [680],
-  );
-  assert.equal(parseItems("nope").length, 0);
 });
 
 test("flatrate on a Paid Service → Item saved, Acquire not called", async () => {

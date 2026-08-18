@@ -14,6 +14,13 @@ import {
   type SearchError,
 } from "@/lib/tmdb";
 import { listItems } from "@/lib/watchlist";
+import {
+  asRef,
+  getRatingsCache,
+  ratingsDepsFromStore,
+  resolveMany,
+  type PublicRatings,
+} from "@/lib/ratings";
 import { SearchHits } from "./hits";
 
 export const dynamic = "force-dynamic";
@@ -91,6 +98,15 @@ export default async function SearchPage({
   const radarrLists = radarrProbe.ok && !radarrProbe.skipped ? radarrProbe.data : blankLists;
   const sonarrLists = sonarrProbe.ok && !sonarrProbe.skipped ? sonarrProbe.data : blankLists;
 
+  const cache = await getRatingsCache(store);
+  const ratingDeps = ratingsDepsFromStore(store, settings, cache);
+  const ratingMap = await resolveMany(
+    titles.map((hit) => asRef(hit)),
+    ratingDeps,
+  );
+  const ratingsByKey: Record<string, PublicRatings> = {};
+  for (const [key, ratings] of ratingMap) ratingsByKey[key] = ratings;
+
   return (
     <main className="main">
       <section className="panel glass wide">
@@ -151,6 +167,7 @@ export default async function SearchPage({
               sonarr={settings.sonarr}
               radarrLists={radarrLists}
               sonarrLists={sonarrLists}
+              ratingsByKey={ratingsByKey}
             />
           </>
         ) : null}

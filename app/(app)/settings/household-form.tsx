@@ -301,6 +301,20 @@ export function HouseholdForm({
         {jellyErr ? <p className="error">{jellyErr}</p> : null}
       </fieldset>
 
+      <fieldset className="block">
+        <legend>{t.omdbSection}</legend>
+        <p className="hint">{t.omdbHint}</p>
+        <label htmlFor="omdbApiKey">{t.apiKeyLabel}</label>
+        <input
+          id="omdbApiKey"
+          name="omdbApiKey"
+          className="field"
+          type="password"
+          autoComplete="off"
+          defaultValue={settings.omdbApiKey}
+        />
+      </fieldset>
+
       <div className="actions span-all">
         <button className="btn narrow" type="submit" name="intent" value="save" disabled={pending}>
           {t.saveSettings}

@@ -7,6 +7,7 @@ import {
   isTitleKind,
   titleCoverage,
   type CoverageResult,
+  type KindFilter,
   type SearchError,
   type Title,
   type TitleKind,
@@ -25,7 +26,9 @@ export type WatchlistItem = {
   addedAt: number;
 };
 
-export type WatchlistView = "all" | "covered" | "acquire" | "watched";
+export type WatchlistView = "all" | "covered" | "library";
+
+export type WatchlistSection = "all" | "unwatched" | "watched";
 
 export type CoverageLookup = (title: Title) => Promise<CoverageResult>;
 
@@ -43,15 +46,49 @@ export const noopAcquire: Acquire = async () => ({ ok: true });
 export const noopDrop: Drop = async () => ({ ok: true });
 export const neverInLibrary: LibraryLookup = async () => ({ ok: true, inLibrary: false });
 
-export function parseWatchlistView(value: unknown): WatchlistView {
-  return value === "covered" || value === "acquire" || value === "watched" ? value : "all";
+export function parseWatchlistView(value: unknown, paidServiceCount = 1): WatchlistView {
+  if (value === "library") return "library";
+  if (value === "covered" && paidServiceCount > 0) return "covered";
+  return "all";
+}
+
+export function parseWatchlistSection(value: unknown): WatchlistSection {
+  if (value === "watched") return "watched";
+  if (value === "unwatched" || value === "still") return "unwatched";
+  return "all";
 }
 
 export function filterItems(items: WatchlistItem[], view: WatchlistView): WatchlistItem[] {
-  if (view === "covered") return items.filter((i) => !i.shouldAcquire && !i.inLibrary && !i.watched);
-  if (view === "acquire") return items.filter((i) => i.shouldAcquire && !i.watched);
-  if (view === "watched") return items.filter((i) => i.watched);
+  if (view === "covered") return items.filter((i) => !i.shouldAcquire && !i.inLibrary);
+  if (view === "library") return items.filter((i) => i.inLibrary);
   return items;
+}
+
+export function byKind(items: WatchlistItem[], kind: KindFilter): WatchlistItem[] {
+  return kind === "all" ? items : items.filter((i) => i.title.kind === kind);
+}
+
+/** Right-panel watch status: All / Not watched / Watched. */
+export function sectionItems(items: WatchlistItem[], section: WatchlistSection): WatchlistItem[] {
+  if (section === "watched") return items.filter((i) => i.watched);
+  if (section === "unwatched") return items.filter((i) => !i.watched);
+  return items;
+}
+
+export function sectionCounts(items: WatchlistItem[]): Record<WatchlistSection, number> {
+  return {
+    all: items.length,
+    unwatched: sectionItems(items, "unwatched").length,
+    watched: sectionItems(items, "watched").length,
+  };
+}
+
+export function filterCounts(items: WatchlistItem[]): Record<WatchlistView, number> {
+  return {
+    all: items.length,
+    covered: filterItems(items, "covered").length,
+    library: filterItems(items, "library").length,
+  };
 }
 
 function paidHit(raw: unknown): PaidHit | null {
