@@ -311,6 +311,30 @@ export async function syncJellyfinWatched(
 }
 
 /**
+ * Keeper Acquire: Acquire a covered Watchlist Item that is not yet In Library.
+ * Covered + not In Library → Acquire once, flip to inLibrary: true, shouldAcquire: false.
+ * Already In Library → error, no Acquire.
+ * Uncovered (shouldAcquire: true) → error, no Acquire.
+ */
+export async function keeperAcquire(
+  store: Store,
+  tmdbId: number,
+  kind: TitleKind,
+  deps: { acquire?: Acquire },
+  opts?: AcquireOpts,
+): Promise<AddResult> {
+  const existing = await findItem(store, tmdbId, kind);
+  if (!existing) return { ok: false, error: "not-found" };
+  if (existing.inLibrary) return { ok: false, error: "already-in-library" };
+  if (existing.shouldAcquire) return { ok: false, error: "uncovered" };
+  const acq = await (deps.acquire ?? noopAcquire)(existing.title, opts);
+  if (!acq.ok) return { ok: false, error: acq.error };
+  const item = { ...existing, inLibrary: true, shouldAcquire: false };
+  await saveItem(store, item);
+  return { ok: true, item, acquired: true, existed: true };
+}
+
+/**
  * Admin Remove: drop *arr+files when In Library or was Acquired; Watchirr-only if streaming-only.
  * keepFiles skips the *arr drop so disk copies stay (re-add sees In Library, no re-Acquire).
  * Watched does not call this. Re-add after success is a fresh addTitle.

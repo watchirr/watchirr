@@ -22,6 +22,8 @@ export type ArrError =
   | "missing-tvdb"
   | "missing-seasons"
   | "not-found"
+  | "already-in-library"
+  | "uncovered"
   | "arr-unreachable"
   | "arr-unauthorized"
   | "arr-failed";

@@ -86,6 +86,8 @@ export const messages = {
   watchlistKeepFiles: "Keep files",
   watchlistServices: "On {services}",
   watchlistNeedsAcquire: "To queue",
+  watchlistKeeperAcquire: "Acquire anyway",
+  watchlistKeeperAcquireConfirm: "Acquire to local library?",
   watchlistInLibrary: "In Library",
   watchlistInLibraryHint: "On Radarr / Sonarr",
   watchlistNoneMatch: "No Items match this filter.",
