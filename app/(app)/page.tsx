@@ -3,10 +3,12 @@ import { redirect } from "next/navigation";
 import { PublicRatingSlots } from "../public-rating-slots";
 import { TitleRail } from "../title-rail";
 import { ExpandSeasons } from "./expand-seasons";
+import { KeeperAcquire } from "./keeper-acquire";
 import { MarkWatched } from "./mark-watched";
 import { RemoveItem } from "./remove-item";
 import { watchlistHref } from "./watchlist-path";
 import { access, currentLocale, currentTitleKind } from "@/lib/http";
+import { probeArr, type ArrLists } from "@/lib/connect";
 import { jellyfinProgress } from "@/lib/jellyfin";
 import { messages, type Messages } from "@/lib/locale";
 import {
@@ -19,7 +21,7 @@ import {
   titleKey,
   type PublicRatings,
 } from "@/lib/ratings";
-import { getSettings } from "@/lib/settings";
+import { getSettings, type ArrSettings } from "@/lib/settings";
 import { posterUrl } from "@/lib/tmdb";
 import {
   byKind,
@@ -70,15 +72,31 @@ function ItemActions({
   view,
   section,
   t,
+  radarr,
+  radarrLists,
 }: {
   item: WatchlistItem;
   view: WatchlistView;
   section: WatchlistSection;
   t: Messages;
+  radarr: ArrSettings;
+  radarrLists: ArrLists;
 }) {
   const hit = item.title;
   return (
     <div className="item-actions">
+      {item.services.length > 0 && !item.inLibrary && !item.shouldAcquire ? (
+        <KeeperAcquire
+          tmdbId={hit.tmdbId}
+          kind={hit.kind}
+          view={view}
+          section={section}
+          title={hit.name}
+          t={t}
+          radarr={radarr}
+          radarrLists={radarrLists}
+        />
+      ) : null}
       {item.inLibrary && hit.kind === "tv" && !item.watched ? (
         <ExpandSeasons tmdbId={hit.tmdbId} title={hit.name} t={t} />
       ) : null}
@@ -128,6 +146,16 @@ export default async function WatchlistPage({
   const counts = filterCounts(sectionItems(all, section));
   const sections = sectionCounts(filtered);
   const arrError = params.err ? arrFail(t, params.err) : undefined;
+
+  const needsKeeperAcquireRadarrLists = inSection.some(
+    (i) => i.title.kind === "movie" && i.services.length > 0 && !i.inLibrary && !i.shouldAcquire,
+  );
+  const blankRadarrLists: ArrLists = { ready: false, qualityProfiles: [], rootFolders: [], languageProfiles: null };
+  let radarrLists = blankRadarrLists;
+  if (needsKeeperAcquireRadarrLists) {
+    const radarrProbe = await probeArr("radarr", settings.radarr.url, settings.radarr.apiKey);
+    if (radarrProbe.ok && !radarrProbe.skipped) radarrLists = radarrProbe.data;
+  }
 
   const cache = await getRatingsCache(store);
   const deps = ratingsDepsFromStore(store, settings, cache);
@@ -231,7 +259,7 @@ export default async function WatchlistPage({
                     </span>
                     <span className={statusLine(featured, t).tone}>{statusLine(featured, t).text}</span>
                     <PublicRatingSlots ratings={ratingsFor(featured)} t={t} />
-                    <ItemActions item={featured} view={view} section={section} t={t} />
+                    <ItemActions item={featured} view={view} section={section} t={t} radarr={settings.radarr} radarrLists={radarrLists} />
                   </span>
                 </div>
 
@@ -254,7 +282,7 @@ export default async function WatchlistPage({
                               </span>
                               <span className={status.tone}>{status.text}</span>
                               <PublicRatingSlots ratings={ratingsFor(item)} t={t} compact />
-                              <ItemActions item={item} view={view} section={section} t={t} />
+                              <ItemActions item={item} view={view} section={section} t={t} radarr={settings.radarr} radarrLists={radarrLists} />
                             </div>
                           </li>
                         );
