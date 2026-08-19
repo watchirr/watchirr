@@ -13,6 +13,7 @@ import {
   filterCounts,
   filterItems,
   findItem,
+  keeperAcquire,
   listItems,
   markWatched,
   parseItems,
@@ -594,6 +595,134 @@ test("re-add after Remove runs coverage and can Acquire again", async () => {
   assert.equal(again.existed, false);
   assert.equal(again.acquired, true);
   assert.deepEqual(acquires, [120, 120]);
+});
+
+test("keeperAcquire: covered + not In Library → Acquire called once, item updated", async () => {
+  const covered = {
+    tmdbId: 10001,
+    kind: "movie" as const,
+    name: "Keeper Movie",
+    year: 2020,
+    posterPath: null,
+  };
+  await addTitle(store, covered, {
+    coverage: async () => ({ ok: true, services: [{ id: 8, name: "Netflix" }] }),
+  });
+  const calls: { tmdbId: number; quality?: number | null; seasons?: number[] }[] = [];
+  const result = await keeperAcquire(
+    store,
+    10001,
+    "movie",
+    {
+      acquire: async (title, opts) => {
+        calls.push({ tmdbId: title.tmdbId, quality: opts?.qualityProfileId, seasons: opts?.seasons });
+        return { ok: true };
+      },
+    },
+    { qualityProfileId: 4 },
+  );
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.acquired, true);
+  assert.equal(result.existed, true);
+  assert.equal(result.item.inLibrary, true);
+  assert.equal(result.item.shouldAcquire, false);
+  assert.deepEqual(calls, [{ tmdbId: 10001, quality: 4, seasons: undefined }]);
+  assert.equal((await findItem(store, 10001, "movie"))?.inLibrary, true);
+});
+
+test("keeperAcquire: already In Library → error, Acquire not called", async () => {
+  const inLib = {
+    tmdbId: 10002,
+    kind: "movie" as const,
+    name: "Already In Library",
+    year: 2019,
+    posterPath: null,
+  };
+  await addTitle(store, inLib, {
+    coverage: async () => ({ ok: true, services: [] }),
+    inLibrary: async () => ({ ok: true, inLibrary: true }),
+  });
+  const calls: number[] = [];
+  const result = await keeperAcquire(store, 10002, "movie", {
+    acquire: async (title) => { calls.push(title.tmdbId); return { ok: true }; },
+  });
+  assert.deepEqual(result, { ok: false, error: "already-in-library" });
+  assert.deepEqual(calls, []);
+});
+
+test("keeperAcquire: uncovered item (shouldAcquire: true) → error, Acquire not called", async () => {
+  const uncovered = {
+    tmdbId: 10003,
+    kind: "movie" as const,
+    name: "Uncovered Movie",
+    year: 2018,
+    posterPath: null,
+  };
+  await addTitle(store, uncovered, {
+    coverage: async () => ({ ok: true, services: [] }),
+    inLibrary: async () => ({ ok: true, inLibrary: false }),
+    acquire: async () => ({ ok: true }),
+  });
+  const calls: number[] = [];
+  const result = await keeperAcquire(store, 10003, "movie", {
+    acquire: async (title) => { calls.push(title.tmdbId); return { ok: true }; },
+  });
+  assert.deepEqual(result, { ok: false, error: "uncovered" });
+  assert.deepEqual(calls, []);
+});
+
+test("keeperAcquire: Acquire adapter error bubbles, item state unchanged", async () => {
+  const toFail = {
+    tmdbId: 10004,
+    kind: "movie" as const,
+    name: "Will Fail",
+    year: 2017,
+    posterPath: null,
+  };
+  await addTitle(store, toFail, {
+    coverage: async () => ({ ok: true, services: [{ id: 8, name: "Netflix" }] }),
+  });
+  const result = await keeperAcquire(store, 10004, "movie", {
+    acquire: async () => ({ ok: false, error: "arr-unreachable" }),
+  });
+  assert.deepEqual(result, { ok: false, error: "arr-unreachable" });
+  const item = await findItem(store, 10004, "movie");
+  assert.equal(item?.inLibrary, false);
+  assert.equal(item?.shouldAcquire, false);
+});
+
+test("keeperAcquire: TV seasons passed through to Acquire adapter", async () => {
+  const tvShow = {
+    tmdbId: 10005,
+    kind: "tv" as const,
+    name: "Keeper Show",
+    year: 2016,
+    posterPath: null,
+  };
+  await addTitle(store, tvShow, {
+    coverage: async () => ({ ok: true, services: [{ id: 9, name: "Prime" }] }),
+  });
+  const calls: { seasons?: number[] }[] = [];
+  const result = await keeperAcquire(
+    store,
+    10005,
+    "tv",
+    {
+      acquire: async (_t, opts) => {
+        calls.push({ seasons: opts?.seasons });
+        return { ok: true };
+      },
+    },
+    { seasons: [2, 3] },
+  );
+  assert.equal(result.ok, true);
+  assert.deepEqual(calls, [{ seasons: [2, 3] }]);
+});
+
+test("keeperAcquire: not on Watchlist → not-found error", async () => {
+  const result = await keeperAcquire(store, 99999, "movie", {});
+  assert.deepEqual(result, { ok: false, error: "not-found" });
 });
 
 test("Remove keep files skips *arr drop; re-add does not Acquire while In Library", async () => {
