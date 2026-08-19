@@ -1,0 +1,2 @@
+# Require owner approval on all PRs (pairs with branch protection + require_code_owner_reviews).
+* @NilsonBertola
