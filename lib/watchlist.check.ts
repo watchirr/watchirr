@@ -13,6 +13,7 @@ import {
   filterCounts,
   filterItems,
   findItem,
+  importLibraryTitles,
   keeperAcquire,
   listItems,
   markWatched,
@@ -760,4 +761,48 @@ test("Remove keep files skips *arr drop; re-add does not Acquire while In Librar
   if (!again.ok) return;
   assert.equal(again.acquired, false);
   assert.deepEqual(acquires, []);
+});
+
+test("importLibraryTitles adds In Library Items without coverage or Acquire", async () => {
+  const a = {
+    tmdbId: 20001,
+    kind: "movie" as const,
+    name: "Import A",
+    year: 2001,
+    posterPath: null,
+  };
+  const b = {
+    tmdbId: 20002,
+    kind: "movie" as const,
+    name: "Import B",
+    year: 2002,
+    posterPath: null,
+  };
+  const c = {
+    tmdbId: 20003,
+    kind: "tv" as const,
+    name: "Import C",
+    year: 2003,
+    posterPath: null,
+  };
+
+  const result = await importLibraryTitles(store, [a, b]);
+  assert.deepEqual(result, { added: 2, alreadyOnList: 0 });
+
+  const itemA = await findItem(store, 20001, "movie");
+  assert.equal(itemA?.inLibrary, true);
+  assert.equal(itemA?.shouldAcquire, false);
+  assert.deepEqual(itemA?.services, []);
+  assert.equal(itemA?.watched, false);
+  assert.equal(itemA?.title.name, "Import A");
+
+  // No coverage/Acquire deps on this path — importLibraryTitles takes none.
+  const again = await importLibraryTitles(store, [a, b, c]);
+  assert.deepEqual(again, { added: 1, alreadyOnList: 2 });
+  assert.equal((await findItem(store, 20003, "tv"))?.inLibrary, true);
+  assert.equal((await findItem(store, 20003, "tv"))?.shouldAcquire, false);
+
+  const third = await importLibraryTitles(store, [a]);
+  assert.deepEqual(third, { added: 0, alreadyOnList: 1 });
+  assert.equal((await listItems(store)).filter((i) => i.title.tmdbId === 20001).length, 1);
 });

@@ -1,21 +1,29 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { listRadarrLibrary, type ArrError } from "@/lib/arr";
 import { probeAll, probeArr, probeTmdb, type HouseholdLists } from "@/lib/connect";
 import { access } from "@/lib/http";
 import { getSettings, putSettings, settingsFromForm, type HouseholdSettings } from "@/lib/settings";
+import { importLibraryTitles } from "@/lib/watchlist";
+
+export type RadarrImportFlash =
+  | { ok: true; added: number; alreadyOnList: number; skippedNoTmdb: number }
+  | { ok: false; error: ArrError };
 
 export type HouseholdState = HouseholdLists & {
   settings: HouseholdSettings;
   saved: boolean;
   stamp: number;
+  radarrImport?: RadarrImportFlash;
 };
 
 export function householdState(
   settings: HouseholdSettings,
   lists: HouseholdLists,
   saved: boolean,
+  radarrImport?: RadarrImportFlash,
 ): HouseholdState {
-  return { settings, ...lists, saved, stamp: Date.now() };
+  return { settings, ...lists, saved, stamp: Date.now(), radarrImport };
 }
 
 export async function loadHousehold(): Promise<HouseholdState> {
@@ -66,6 +74,30 @@ export async function householdAction(prev: HouseholdState, formData: FormData):
       sonarr: sonarr.ok && !sonarr.skipped ? sonarr.data : { ready: false, qualityProfiles: [], rootFolders: [], languageProfiles: null },
       errors: { ...prev.errors, sonarr: sonarr.ok ? undefined : sonarr.error },
     }, false);
+  }
+
+  if (intent === "import-radarr-library") {
+    const lists = {
+      tmdbReady: prev.tmdbReady,
+      countries: prev.countries,
+      providers: prev.providers,
+      radarr: prev.radarr,
+      sonarr: prev.sonarr,
+      errors: prev.errors,
+    };
+    const listed = await listRadarrLibrary(settings);
+    if (!listed.ok) {
+      return householdState(settings, lists, false, listed);
+    }
+    const imported = await importLibraryTitles(store, listed.titles);
+    revalidatePath("/");
+    revalidatePath("/search");
+    return householdState(settings, lists, false, {
+      ok: true,
+      added: imported.added,
+      alreadyOnList: imported.alreadyOnList,
+      skippedNoTmdb: listed.skippedNoTmdb,
+    });
   }
 
   await putSettings(store, settings);

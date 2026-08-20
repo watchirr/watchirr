@@ -198,6 +198,46 @@ export function tmdbCoverageLookup(
     titleCoverage(settings.tmdbApiKey, title, settings.country, settings.paidServiceIds, get);
 }
 
+export type LibraryImportResult = { added: number; alreadyOnList: number };
+
+/**
+ * Library Import: Watchlist-only Items from Titles already In Library (*arr).
+ * Never runs Streaming Coverage or Acquire — do not route through addTitle.
+ */
+export async function importLibraryTitles(
+  store: Store,
+  titles: Title[],
+): Promise<LibraryImportResult> {
+  const items = await listItems(store);
+  const seen = new Set(items.map((i) => `${i.title.kind}:${i.title.tmdbId}`));
+  let added = 0;
+  let alreadyOnList = 0;
+  const now = Date.now();
+  const next = [...items];
+
+  for (const title of titles) {
+    if (!title.tmdbId) continue;
+    const key = `${title.kind}:${title.tmdbId}`;
+    if (seen.has(key)) {
+      alreadyOnList += 1;
+      continue;
+    }
+    next.push({
+      title,
+      services: [],
+      shouldAcquire: false,
+      inLibrary: true,
+      watched: false,
+      addedAt: now,
+    });
+    seen.add(key);
+    added += 1;
+  }
+
+  if (added > 0) await putItems(store, next);
+  return { added, alreadyOnList };
+}
+
 /**
  * Watchlist application seam: create Item, resolve Streaming Coverage, Acquire or expand seasons.
  * Covered → no Acquire. Uncovered + not In Library → Acquire once.

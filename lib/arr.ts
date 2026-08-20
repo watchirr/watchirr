@@ -46,6 +46,9 @@ export type AcquireResult = { ok: true } | { ok: false; error: ArrError };
 export type SeasonsResult =
   | { ok: true; seasons: number[]; monitored: number[]; inLibrary: boolean }
   | { ok: false; error: ArrError };
+export type LibraryListResult =
+  | { ok: true; titles: Title[]; skippedNoTmdb: number }
+  | { ok: false; error: ArrError };
 
 export type LibraryLookup = (title: Title) => Promise<LibraryResult>;
 export type AcquireFn = (title: Title, opts?: AcquireOpts) => Promise<AcquireResult>;
@@ -226,6 +229,50 @@ export function arrLibraryLookup(
     if (!looked.ok) return looked;
     return { ok: true, inLibrary: looked.inLibrary };
   };
+}
+
+/** Map Radarr GET /api/v3/movie rows to Titles; skip missing TMDB id. */
+export function parseRadarrMovies(json: unknown): { titles: Title[]; skippedNoTmdb: number } {
+  if (!Array.isArray(json)) return { titles: [], skippedNoTmdb: 0 };
+  const titles: Title[] = [];
+  let skippedNoTmdb = 0;
+  for (const row of json) {
+    if (!row || typeof row !== "object") continue;
+    const o = row as Record<string, unknown>;
+    const tmdbId = num(o.tmdbId);
+    if (!tmdbId) {
+      skippedNoTmdb += 1;
+      continue;
+    }
+    const name = str(o.title) || str(o.originalTitle);
+    if (!name) continue;
+    const yearRaw = o.year;
+    const year =
+      typeof yearRaw === "number" && Number.isInteger(yearRaw) && yearRaw > 0
+        ? yearRaw
+        : num(yearRaw);
+    titles.push({
+      tmdbId,
+      kind: "movie",
+      name,
+      year: year && year >= 1000 ? year : null,
+      // ponytail: Radarr posters are MediaCover URLs, not TMDB paths — null is fine (spec).
+      posterPath: null,
+    });
+  }
+  return { titles, skippedNoTmdb };
+}
+
+/** One-shot Library Import list: movies already In Library in Radarr. */
+export async function listRadarrLibrary(
+  settings: Pick<HouseholdSettings, "radarr">,
+  get: HttpGet = defaultGet,
+): Promise<LibraryListResult> {
+  if (!arrReachable(settings.radarr)) return { ok: false, error: "missing-defaults" };
+  const res = await get(joinUrl(settings.radarr.url, "/api/v3/movie"), arrHeaders(settings.radarr.apiKey));
+  const status = classify(res);
+  if (status !== "ok") return { ok: false, error: asArrError(status) };
+  return { ok: true, ...parseRadarrMovies("error" in res ? null : res.json) };
 }
 
 /** Season numbers for the add/expand UI (Sonarr; no specials). */

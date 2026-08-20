@@ -31,6 +31,10 @@ export const messages = {
   loadTmdb: "Carregar países e serviços",
   loadRadarr: "Carregar do Radarr",
   loadSonarr: "Carregar do Sonarr",
+  importToWatchlist: "Importar para a lista",
+  libraryImportOk:
+    "Importação concluída: {added} adicionados, {already} já na lista, {skipped} ignorados (sem TMDB).",
+  libraryImportMissing: "Configure a URL e a chave da API do {service} primeiro.",
   saveSettings: "Salvar",
   settingsSaved: "Configurações salvas.",
   connectUnreachable: "Não foi possível conectar a {service}.",
