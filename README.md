@@ -6,6 +6,8 @@ Only sends titles to Radarr/Sonarr when they are not already on a streaming serv
 
 The streaming-aware watchlist for self-hosted Jellyfin households.
 
+**Site:** [watchirr.github.io](https://watchirr.github.io/)
+
 ![Search in Watchirr](./docs/images/search.png)
 
 ## What it does
