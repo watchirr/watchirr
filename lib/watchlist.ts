@@ -1,6 +1,6 @@
 import type { AcquireFn, AcquireOpts, ArrError, DropFn, LibraryLookup } from "./arr.ts";
 import type { Store } from "./auth.ts";
-import type { ProgressLookup } from "./jellyfin.ts";
+import type { JellyfinError, ProgressLookup } from "./jellyfin.ts";
 import type { HouseholdSettings } from "./settings.ts";
 import { num, str } from "./settings.ts";
 import {
@@ -326,28 +326,45 @@ export async function markWatched(
   return item;
 }
 
+export type SyncJellyfinResult =
+  | { ok: true; marked: number; alreadyWatched: number; noMatch: number }
+  | { ok: false; error: JellyfinError };
+
 /**
  * Poll Jellyfin progress into Household Watched. No *arr delete.
+ * Marks existing Watchlist Items only — never creates Items.
  */
 export async function syncJellyfinWatched(
   store: Store,
   deps: { progress: ProgressLookup },
-): Promise<{ marked: number }> {
+): Promise<SyncJellyfinResult> {
   const result = await deps.progress();
-  if (!result.ok) return { marked: 0 };
-  if (result.progressed.length === 0) return { marked: 0 };
+  if (!result.ok) return { ok: false, error: result.error };
+  if (result.progressed.length === 0) {
+    return { ok: true, marked: 0, alreadyWatched: 0, noMatch: 0 };
+  }
 
   const hits = new Set(result.progressed.map((p) => `${p.kind}:${p.tmdbId}`));
   const items = await listItems(store);
+  const onList = new Set(items.map((i) => `${i.title.kind}:${i.title.tmdbId}`));
   let marked = 0;
+  let alreadyWatched = 0;
   const next = items.map((item) => {
-    if (item.watched) return item;
-    if (!hits.has(`${item.title.kind}:${item.title.tmdbId}`)) return item;
+    const key = `${item.title.kind}:${item.title.tmdbId}`;
+    if (!hits.has(key)) return item;
+    if (item.watched) {
+      alreadyWatched += 1;
+      return item;
+    }
     marked += 1;
     return { ...item, watched: true };
   });
+  let noMatch = 0;
+  for (const p of result.progressed) {
+    if (!onList.has(`${p.kind}:${p.tmdbId}`)) noMatch += 1;
+  }
   if (marked > 0) await putItems(store, next);
-  return { marked };
+  return { ok: true, marked, alreadyWatched, noMatch };
 }
 
 /**

@@ -33,6 +33,9 @@ export const messages = {
   libraryImportOk:
     "Import finished: {added} added, {already} already on list, {skipped} skipped (no TMDB).",
   libraryImportMissing: "Set {service} URL and API key first.",
+  importWatched: "Import Watched",
+  watchedImportOk:
+    "Watched import finished: {marked} marked, {already} already Watched, {noMatch} no match on Watchlist.",
   saveSettings: "Save",
   settingsSaved: "Settings saved.",
   connectUnreachable: "Could not reach {service}.",

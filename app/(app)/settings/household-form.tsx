@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import type { Messages } from "@/lib/locale";
 import type { ArrError } from "@/lib/arr";
+import type { JellyfinError } from "@/lib/jellyfin";
 import type { HouseholdState } from "./actions";
 
 function fail(t: Messages, service: string, code: HouseholdState["errors"][keyof HouseholdState["errors"]]) {
@@ -16,6 +17,13 @@ function arrFail(t: Messages, service: string, code: ArrError): string {
   if (code === "arr-unreachable") return t.connectUnreachable.replace("{service}", service);
   if (code === "arr-unauthorized") return t.connectUnauthorized.replace("{service}", service);
   return t.connectFailed.replace("{service}", service);
+}
+
+function jellyFail(t: Messages, code: JellyfinError | "missing-defaults"): string {
+  if (code === "missing-defaults") return t.libraryImportMissing.replace("{service}", "Jellyfin");
+  if (code === "jellyfin-unreachable") return t.connectUnreachable.replace("{service}", "Jellyfin");
+  if (code === "jellyfin-unauthorized") return t.connectUnauthorized.replace("{service}", "Jellyfin");
+  return t.connectFailed.replace("{service}", "Jellyfin");
 }
 
 function withSaved<T extends { id?: number; path?: string }>(items: T[], saved: T, key: keyof T): T[] {
@@ -199,6 +207,8 @@ export function HouseholdForm({
     state.radarrImport && !state.radarrImport.ok ? arrFail(t, "Radarr", state.radarrImport.error) : null;
   const sonarrImportErr =
     state.sonarrImport && !state.sonarrImport.ok ? arrFail(t, "Sonarr", state.sonarrImport.error) : null;
+  const jellyImportErr =
+    state.jellyfinImport && !state.jellyfinImport.ok ? jellyFail(t, state.jellyfinImport.error) : null;
   const showCountry = state.tmdbReady && state.countries.length > 0;
   const showServices = state.providers.length > 0;
 
@@ -219,6 +229,14 @@ export function HouseholdForm({
             .replace("{added}", String(state.sonarrImport.added))
             .replace("{already}", String(state.sonarrImport.alreadyOnList))
             .replace("{skipped}", String(state.sonarrImport.skippedNoTmdb))}
+        </p>
+      ) : null}
+      {state.jellyfinImport?.ok ? (
+        <p className="ok">
+          {t.watchedImportOk
+            .replace("{marked}", String(state.jellyfinImport.marked))
+            .replace("{already}", String(state.jellyfinImport.alreadyWatched))
+            .replace("{noMatch}", String(state.jellyfinImport.noMatch))}
         </p>
       ) : null}
 
@@ -335,6 +353,10 @@ export function HouseholdForm({
         <label htmlFor="jellyfinApiKey">{t.apiKeyLabel}</label>
         <input id="jellyfinApiKey" name="jellyfinApiKey" className="field" type="password" autoComplete="off" defaultValue={settings.jellyfin.apiKey} />
         {jellyErr ? <p className="error">{jellyErr}</p> : null}
+        {jellyImportErr ? <p className="error">{jellyImportErr}</p> : null}
+        <button className="btn secondary" type="submit" name="intent" value="import-jellyfin-watched" disabled={pending}>
+          {t.importWatched}
+        </button>
       </fieldset>
 
       <fieldset className="block">
