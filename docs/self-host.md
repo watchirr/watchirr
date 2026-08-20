@@ -1,6 +1,8 @@
 # Self-host config guide
 
-Watchirr is a single Docker container for the Household Watchlist: search Titles, gate on Streaming Coverage, Acquire into Radarr/Sonarr when needed, and record Watched (Jellyfin or by hand). This guide covers deploy, env, first-run Admin, Settings, Locale, data durability, and a short happy path.
+Technical depth for running Watchirr in production: env, durability, full Settings, Locale, Postgres/Traefik, and edge cases.
+
+**Start here only after the [README](../README.md)** — that doc is the stranger path (pitch → deploy → first use). This file is the long-form companion.
 
 Two deploy paths share the **same** runtime shape: **Docker Compose CLI** (`docker-compose.example.yml`) and **Portainer** (`portainer-stack.yml`). Do not treat them as different products.
 
