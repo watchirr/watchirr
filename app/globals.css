@@ -734,9 +734,8 @@ select:focus {
   padding: 1.15rem 1.2rem 1.1rem;
   max-height: min(85vh, 40rem);
   overflow: auto;
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
+  /* Solid: glass + dialog opacity anim breaks backdrop-filter over posters. */
+  background: #fff;
   border: var(--glass-border);
   box-shadow: var(--glass-shadow), var(--glass-inset);
   border-radius: 16px;
@@ -1676,7 +1675,6 @@ button.rail-card {
 
 @media (prefers-reduced-transparency: reduce) {
   .glass,
-  .action-dialog-form,
   input,
   select,
   .checks,
