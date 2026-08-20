@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.4]
+
+- Shared viewport-fixed toasts for action outcomes (success / info auto-dismiss; warning / error stay until dismissed)
+- Settings import, save, and probe results surface as toasts instead of scroll-tied flashes
+- Search add failures, Watchlist remove/acquire errors, and login/setup submit errors use the same toast host
+
 ## [1.0.3]
 
 - Library Import: one-shot Admin **Import to Watchlist** from Radarr and Sonarr (Settings), skipping coverage/Acquire and entries without a TMDB id
