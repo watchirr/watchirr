@@ -1,0 +1,38 @@
+# Self-host via Compose CLI (no clone-to-build). Copy or run with -f:
+#   docker compose -f docker-compose.example.yml up -d
+#
+# Image: pin a release tag. :latest is fine for smoke tests; check GHCR releases for newer.
+# SQLite file on the Docker host: ./data/watchirr.db (stop the stack before copying a backup).
+# TMDB / OMDb / *arr keys → Settings after login. See docs/self-host.md.
+services:
+  watchirr:
+    image: ghcr.io/watchirr/watchirr:v1.0.0
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./data:/data
+    environment:
+      DATA_DIR: /data
+      # First-deploy only. Setting DATABASE_URL switches to Postgres (no migration from SQLite).
+      # DATABASE_URL: postgres://watchirr:watchirr@db:5432/watchirr
+    # Optional Traefik (uncomment labels + networks; remove or comment `ports` above):
+    # labels:
+    #   - traefik.enable=true
+    #   - traefik.http.routers.watchirr.rule=Host(`watchirr.example.com`)
+    #   - traefik.http.services.watchirr.loadbalancer.server.port=3000
+    # networks:
+    #   - proxy
+
+  # Optional Postgres (uncomment service + DATABASE_URL above). SQLite stays the default.
+  # db:
+  #   image: postgres:16-alpine
+  #   environment:
+  #     POSTGRES_USER: watchirr
+  #     POSTGRES_PASSWORD: watchirr
+  #     POSTGRES_DB: watchirr
+  #   volumes:
+  #     - ./pgdata:/var/lib/postgresql/data
+
+# networks:
+#   proxy:
+#     external: true
