@@ -1,21 +1,49 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { listRadarrLibrary, listSonarrLibrary, type ArrError } from "@/lib/arr";
 import { probeAll, probeArr, probeTmdb, type HouseholdLists } from "@/lib/connect";
-import { access } from "@/lib/http";
+import { access, currentLocale } from "@/lib/http";
+import { jellyfinProgress, type JellyfinError } from "@/lib/jellyfin";
 import { getSettings, putSettings, settingsFromForm, type HouseholdSettings } from "@/lib/settings";
+import { withTmdbPosters } from "@/lib/tmdb";
+import { importLibraryTitles, syncJellyfinWatched } from "@/lib/watchlist";
+
+export type LibraryImportFlash =
+  | { ok: true; added: number; alreadyOnList: number; skippedNoTmdb: number }
+  | { ok: false; error: ArrError };
+
+export type WatchedImportFlash =
+  | { ok: true; marked: number; alreadyWatched: number; noMatch: number }
+  | { ok: false; error: JellyfinError | "missing-defaults" };
 
 export type HouseholdState = HouseholdLists & {
   settings: HouseholdSettings;
   saved: boolean;
   stamp: number;
+  radarrImport?: LibraryImportFlash;
+  sonarrImport?: LibraryImportFlash;
+  jellyfinImport?: WatchedImportFlash;
 };
 
 export function householdState(
   settings: HouseholdSettings,
   lists: HouseholdLists,
   saved: boolean,
+  flash?: {
+    radarrImport?: LibraryImportFlash;
+    sonarrImport?: LibraryImportFlash;
+    jellyfinImport?: WatchedImportFlash;
+  },
 ): HouseholdState {
-  return { settings, ...lists, saved, stamp: Date.now() };
+  return {
+    settings,
+    ...lists,
+    saved,
+    stamp: Date.now(),
+    radarrImport: flash?.radarrImport,
+    sonarrImport: flash?.sonarrImport,
+    jellyfinImport: flash?.jellyfinImport,
+  };
 }
 
 export async function loadHousehold(): Promise<HouseholdState> {
@@ -66,6 +94,93 @@ export async function householdAction(prev: HouseholdState, formData: FormData):
       sonarr: sonarr.ok && !sonarr.skipped ? sonarr.data : { ready: false, qualityProfiles: [], rootFolders: [], languageProfiles: null },
       errors: { ...prev.errors, sonarr: sonarr.ok ? undefined : sonarr.error },
     }, false);
+  }
+
+  if (intent === "import-radarr-library") {
+    const lists = {
+      tmdbReady: prev.tmdbReady,
+      countries: prev.countries,
+      providers: prev.providers,
+      radarr: prev.radarr,
+      sonarr: prev.sonarr,
+      errors: prev.errors,
+    };
+    const listed = await listRadarrLibrary(settings);
+    if (!listed.ok) {
+      return householdState(settings, lists, false, { radarrImport: listed });
+    }
+    const locale = await currentLocale();
+    const titles = await withTmdbPosters(settings.tmdbApiKey, listed.titles, locale);
+    const imported = await importLibraryTitles(store, titles);
+    revalidatePath("/");
+    revalidatePath("/search");
+    return householdState(settings, lists, false, {
+      radarrImport: {
+        ok: true,
+        added: imported.added,
+        alreadyOnList: imported.alreadyOnList,
+        skippedNoTmdb: listed.skippedNoTmdb,
+      },
+    });
+  }
+
+  if (intent === "import-sonarr-library") {
+    const lists = {
+      tmdbReady: prev.tmdbReady,
+      countries: prev.countries,
+      providers: prev.providers,
+      radarr: prev.radarr,
+      sonarr: prev.sonarr,
+      errors: prev.errors,
+    };
+    const listed = await listSonarrLibrary(settings);
+    if (!listed.ok) {
+      return householdState(settings, lists, false, { sonarrImport: listed });
+    }
+    const locale = await currentLocale();
+    const titles = await withTmdbPosters(settings.tmdbApiKey, listed.titles, locale);
+    const imported = await importLibraryTitles(store, titles);
+    revalidatePath("/");
+    revalidatePath("/search");
+    return householdState(settings, lists, false, {
+      sonarrImport: {
+        ok: true,
+        added: imported.added,
+        alreadyOnList: imported.alreadyOnList,
+        skippedNoTmdb: listed.skippedNoTmdb,
+      },
+    });
+  }
+
+  if (intent === "import-jellyfin-watched") {
+    const lists = {
+      tmdbReady: prev.tmdbReady,
+      countries: prev.countries,
+      providers: prev.providers,
+      radarr: prev.radarr,
+      sonarr: prev.sonarr,
+      errors: prev.errors,
+    };
+    if (!settings.jellyfin.url.trim() || !settings.jellyfin.apiKey.trim()) {
+      return householdState(settings, lists, false, {
+        jellyfinImport: { ok: false, error: "missing-defaults" },
+      });
+    }
+    const synced = await syncJellyfinWatched(store, {
+      progress: jellyfinProgress(settings),
+    });
+    if (!synced.ok) {
+      return householdState(settings, lists, false, { jellyfinImport: synced });
+    }
+    revalidatePath("/");
+    return householdState(settings, lists, false, {
+      jellyfinImport: {
+        ok: true,
+        marked: synced.marked,
+        alreadyWatched: synced.alreadyWatched,
+        noMatch: synced.noMatch,
+      },
+    });
   }
 
   await putSettings(store, settings);

@@ -227,6 +227,46 @@ export type CoverageResult =
   | { ok: true; services: { id: number; name: string }[] }
   | { ok: false; error: SearchError };
 
+export type TitleResult = { ok: true; title: Title } | { ok: false; error: SearchError };
+
+/** Single Title by TMDB id — same poster_path shape as search. */
+export async function fetchTitle(
+  apiKey: string,
+  ref: { tmdbId: number; kind: TitleKind },
+  language: string,
+  get: HttpGet = defaultGet,
+): Promise<TitleResult> {
+  if (!apiKey.trim()) return { ok: false, error: "missing-key" };
+  if (!ref.tmdbId) return { ok: false, error: "failed" };
+  const path = ref.kind === "movie" ? `/movie/${ref.tmdbId}` : `/tv/${ref.tmdbId}`;
+  const res = await get(tmdbUrl(apiKey, path, { language }), { Accept: "application/json" });
+  const status = classify(res);
+  if (status !== "ok") return { ok: false, error: status };
+  const json = "error" in res ? null : res.json;
+  const title =
+    json && typeof json === "object" ? titleFrom(json as Record<string, unknown>, ref.kind) : null;
+  return title ? { ok: true, title } : { ok: false, error: "failed" };
+}
+
+/** Fill missing posterPath from TMDB detail (Library Import). Failures keep the Title as-is. */
+export async function withTmdbPosters(
+  apiKey: string,
+  titles: Title[],
+  language: string,
+  get: HttpGet = defaultGet,
+): Promise<Title[]> {
+  if (!apiKey.trim() || titles.length === 0) return titles;
+  return Promise.all(
+    titles.map(async (title) => {
+      if (title.posterPath) return title;
+      const hit = await fetchTitle(apiKey, title, language, get);
+      return hit.ok && hit.title.posterPath
+        ? { ...title, posterPath: hit.title.posterPath }
+        : title;
+    }),
+  );
+}
+
 export async function titleCoverage(
   apiKey: string,
   title: { tmdbId: number; kind: TitleKind },

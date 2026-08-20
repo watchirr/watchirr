@@ -1,6 +1,6 @@
 import type { AcquireFn, AcquireOpts, ArrError, DropFn, LibraryLookup } from "./arr.ts";
 import type { Store } from "./auth.ts";
-import type { ProgressLookup } from "./jellyfin.ts";
+import type { JellyfinError, ProgressLookup } from "./jellyfin.ts";
 import type { HouseholdSettings } from "./settings.ts";
 import { num, str } from "./settings.ts";
 import {
@@ -198,6 +198,55 @@ export function tmdbCoverageLookup(
     titleCoverage(settings.tmdbApiKey, title, settings.country, settings.paidServiceIds, get);
 }
 
+export type LibraryImportResult = { added: number; alreadyOnList: number };
+
+/**
+ * Library Import: Watchlist-only Items from Titles already In Library (*arr).
+ * Never runs Streaming Coverage or Acquire — do not route through addTitle.
+ */
+export async function importLibraryTitles(
+  store: Store,
+  titles: Title[],
+): Promise<LibraryImportResult> {
+  const items = await listItems(store);
+  const seen = new Set(items.map((i) => `${i.title.kind}:${i.title.tmdbId}`));
+  let added = 0;
+  let alreadyOnList = 0;
+  let dirty = false;
+  const now = Date.now();
+  const next = [...items];
+
+  for (const title of titles) {
+    if (!title.tmdbId) continue;
+    const key = `${title.kind}:${title.tmdbId}`;
+    if (seen.has(key)) {
+      alreadyOnList += 1;
+      // Re-run backfills posters when Library Import previously stored null.
+      if (title.posterPath) {
+        const i = next.findIndex((row) => `${row.title.kind}:${row.title.tmdbId}` === key);
+        if (i >= 0 && !next[i].title.posterPath) {
+          next[i] = { ...next[i], title: { ...next[i].title, posterPath: title.posterPath } };
+          dirty = true;
+        }
+      }
+      continue;
+    }
+    next.push({
+      title,
+      services: [],
+      shouldAcquire: false,
+      inLibrary: true,
+      watched: false,
+      addedAt: now,
+    });
+    seen.add(key);
+    added += 1;
+  }
+
+  if (added > 0 || dirty) await putItems(store, next);
+  return { added, alreadyOnList };
+}
+
 /**
  * Watchlist application seam: create Item, resolve Streaming Coverage, Acquire or expand seasons.
  * Covered → no Acquire. Uncovered + not In Library → Acquire once.
@@ -286,28 +335,45 @@ export async function markWatched(
   return item;
 }
 
+export type SyncJellyfinResult =
+  | { ok: true; marked: number; alreadyWatched: number; noMatch: number }
+  | { ok: false; error: JellyfinError };
+
 /**
  * Poll Jellyfin progress into Household Watched. No *arr delete.
+ * Marks existing Watchlist Items only — never creates Items.
  */
 export async function syncJellyfinWatched(
   store: Store,
   deps: { progress: ProgressLookup },
-): Promise<{ marked: number }> {
+): Promise<SyncJellyfinResult> {
   const result = await deps.progress();
-  if (!result.ok) return { marked: 0 };
-  if (result.progressed.length === 0) return { marked: 0 };
+  if (!result.ok) return { ok: false, error: result.error };
+  if (result.progressed.length === 0) {
+    return { ok: true, marked: 0, alreadyWatched: 0, noMatch: 0 };
+  }
 
   const hits = new Set(result.progressed.map((p) => `${p.kind}:${p.tmdbId}`));
   const items = await listItems(store);
+  const onList = new Set(items.map((i) => `${i.title.kind}:${i.title.tmdbId}`));
   let marked = 0;
+  let alreadyWatched = 0;
   const next = items.map((item) => {
-    if (item.watched) return item;
-    if (!hits.has(`${item.title.kind}:${item.title.tmdbId}`)) return item;
+    const key = `${item.title.kind}:${item.title.tmdbId}`;
+    if (!hits.has(key)) return item;
+    if (item.watched) {
+      alreadyWatched += 1;
+      return item;
+    }
     marked += 1;
     return { ...item, watched: true };
   });
+  let noMatch = 0;
+  for (const p of result.progressed) {
+    if (!onList.has(`${p.kind}:${p.tmdbId}`)) noMatch += 1;
+  }
   if (marked > 0) await putItems(store, next);
-  return { marked };
+  return { ok: true, marked, alreadyWatched, noMatch };
 }
 
 /**

@@ -13,6 +13,7 @@ import {
   filterCounts,
   filterItems,
   findItem,
+  importLibraryTitles,
   keeperAcquire,
   listItems,
   markWatched,
@@ -462,19 +463,66 @@ test("Jellyfin progress > 0% matching a Watchlist Title sets Watched without Acq
       ],
     }),
   });
-  assert.deepEqual(sync, { marked: 1 });
+  assert.deepEqual(sync, { ok: true, marked: 1, alreadyWatched: 0, noMatch: 1 });
   assert.equal((await findItem(store, 424, "movie"))?.watched, true);
   assert.deepEqual(calls, []);
 
   const noop = await syncJellyfinWatched(store, {
     progress: async () => ({ ok: true, progressed: [{ tmdbId: 424, kind: "movie" }] }),
   });
-  assert.deepEqual(noop, { marked: 0 });
+  assert.deepEqual(noop, { ok: true, marked: 0, alreadyWatched: 1, noMatch: 0 });
 
   const fail = await syncJellyfinWatched(store, {
     progress: async () => ({ ok: false, error: "jellyfin-unreachable" }),
   });
-  assert.deepEqual(fail, { marked: 0 });
+  assert.deepEqual(fail, { ok: false, error: "jellyfin-unreachable" });
+});
+
+test("syncJellyfinWatched counts marked / already Watched / no Watchlist match", async () => {
+  const a = {
+    tmdbId: 10,
+    kind: "movie" as const,
+    name: "Fresh",
+    year: 2020,
+    posterPath: null,
+  };
+  const b = {
+    tmdbId: 20,
+    kind: "movie" as const,
+    name: "Already",
+    year: 2021,
+    posterPath: null,
+  };
+  await addTitle(store, a, {
+    coverage: async () => ({ ok: true, services: [] }),
+    inLibrary: async () => ({ ok: true, inLibrary: true }),
+  });
+  await addTitle(store, b, {
+    coverage: async () => ({ ok: true, services: [] }),
+    inLibrary: async () => ({ ok: true, inLibrary: true }),
+  });
+  await markWatched(store, 20, "movie");
+
+  const beforeCount = (await listItems(store)).length;
+  const result = await syncJellyfinWatched(store, {
+    progress: async () => ({
+      ok: true,
+      progressed: [
+        { tmdbId: 10, kind: "movie" },
+        { tmdbId: 20, kind: "movie" },
+        { tmdbId: 99, kind: "tv" },
+      ],
+    }),
+  });
+  assert.deepEqual(result, { ok: true, marked: 1, alreadyWatched: 1, noMatch: 1 });
+  assert.equal((await findItem(store, 10, "movie"))?.watched, true);
+  assert.equal((await findItem(store, 99, "tv")), null);
+  assert.equal((await listItems(store)).length, beforeCount);
+
+  const empty = await syncJellyfinWatched(store, {
+    progress: async () => ({ ok: true, progressed: [] }),
+  });
+  assert.deepEqual(empty, { ok: true, marked: 0, alreadyWatched: 0, noMatch: 0 });
 });
 
 test("Remove local → *arr drop + Item gone; streaming-only skips *arr", async () => {
@@ -760,4 +808,64 @@ test("Remove keep files skips *arr drop; re-add does not Acquire while In Librar
   if (!again.ok) return;
   assert.equal(again.acquired, false);
   assert.deepEqual(acquires, []);
+});
+
+test("importLibraryTitles adds In Library Items without coverage or Acquire", async () => {
+  const a = {
+    tmdbId: 20001,
+    kind: "movie" as const,
+    name: "Import A",
+    year: 2001,
+    posterPath: null,
+  };
+  const b = {
+    tmdbId: 20002,
+    kind: "movie" as const,
+    name: "Import B",
+    year: 2002,
+    posterPath: null,
+  };
+  const c = {
+    tmdbId: 20003,
+    kind: "tv" as const,
+    name: "Import C",
+    year: 2003,
+    posterPath: null,
+  };
+
+  const result = await importLibraryTitles(store, [a, b]);
+  assert.deepEqual(result, { added: 2, alreadyOnList: 0 });
+
+  const itemA = await findItem(store, 20001, "movie");
+  assert.equal(itemA?.inLibrary, true);
+  assert.equal(itemA?.shouldAcquire, false);
+  assert.deepEqual(itemA?.services, []);
+  assert.equal(itemA?.watched, false);
+  assert.equal(itemA?.title.name, "Import A");
+
+  // No coverage/Acquire deps on this path — importLibraryTitles takes none.
+  const again = await importLibraryTitles(store, [a, b, c]);
+  assert.deepEqual(again, { added: 1, alreadyOnList: 2 });
+  assert.equal((await findItem(store, 20003, "tv"))?.inLibrary, true);
+  assert.equal((await findItem(store, 20003, "tv"))?.shouldAcquire, false);
+
+  const third = await importLibraryTitles(store, [a]);
+  assert.deepEqual(third, { added: 0, alreadyOnList: 1 });
+  assert.equal((await listItems(store)).filter((i) => i.title.tmdbId === 20001).length, 1);
+});
+
+test("importLibraryTitles backfills posterPath on already-on-list re-run", async () => {
+  const bare = {
+    tmdbId: 20010,
+    kind: "movie" as const,
+    name: "Posterless",
+    year: 2010,
+    posterPath: null,
+  };
+  await importLibraryTitles(store, [bare]);
+  assert.equal((await findItem(store, 20010, "movie"))?.title.posterPath, null);
+
+  const filled = await importLibraryTitles(store, [{ ...bare, posterPath: "/p.jpg" }]);
+  assert.deepEqual(filled, { added: 0, alreadyOnList: 1 });
+  assert.equal((await findItem(store, 20010, "movie"))?.title.posterPath, "/p.jpg");
 });
