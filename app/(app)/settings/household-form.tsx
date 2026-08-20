@@ -1,9 +1,11 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
+import { useToast } from "../../toast-host";
 import type { Messages } from "@/lib/locale";
 import type { ArrError } from "@/lib/arr";
 import type { JellyfinError } from "@/lib/jellyfin";
+import type { ToastType } from "@/lib/toast";
 import type { HouseholdState } from "./actions";
 
 function fail(t: Messages, service: string, code: HouseholdState["errors"][keyof HouseholdState["errors"]]) {
@@ -198,47 +200,60 @@ export function HouseholdForm({
   t: Messages;
 }) {
   const [state, formAction, pending] = useActionState(action, initial);
+  const { push } = useToast();
+  const toastedStamp = useRef<number | null>(null);
   const { settings, errors } = state;
   const tmdbErr = fail(t, "TMDB", errors.tmdb);
   const radarrErr = fail(t, "Radarr", errors.radarr);
   const sonarrErr = fail(t, "Sonarr", errors.sonarr);
   const jellyErr = fail(t, "Jellyfin", errors.jellyfin);
-  const radarrImportErr =
-    state.radarrImport && !state.radarrImport.ok ? arrFail(t, "Radarr", state.radarrImport.error) : null;
-  const sonarrImportErr =
-    state.sonarrImport && !state.sonarrImport.ok ? arrFail(t, "Sonarr", state.sonarrImport.error) : null;
-  const jellyImportErr =
-    state.jellyfinImport && !state.jellyfinImport.ok ? jellyFail(t, state.jellyfinImport.error) : null;
   const showCountry = state.tmdbReady && state.countries.length > 0;
   const showServices = state.providers.length > 0;
+
+  useEffect(() => {
+    if (toastedStamp.current === state.stamp) return;
+    const flashes: { type: ToastType; message: string }[] = [];
+    if (state.radarrImport?.ok) {
+      flashes.push({
+        type: state.radarrImport.added > 0 ? "success" : "info",
+        message: t.libraryImportOk
+          .replace("{added}", String(state.radarrImport.added))
+          .replace("{already}", String(state.radarrImport.alreadyOnList))
+          .replace("{skipped}", String(state.radarrImport.skippedNoTmdb)),
+      });
+    } else if (state.radarrImport) {
+      flashes.push({ type: "error", message: arrFail(t, "Radarr", state.radarrImport.error) });
+    }
+    if (state.sonarrImport?.ok) {
+      flashes.push({
+        type: state.sonarrImport.added > 0 ? "success" : "info",
+        message: t.libraryImportOk
+          .replace("{added}", String(state.sonarrImport.added))
+          .replace("{already}", String(state.sonarrImport.alreadyOnList))
+          .replace("{skipped}", String(state.sonarrImport.skippedNoTmdb)),
+      });
+    } else if (state.sonarrImport) {
+      flashes.push({ type: "error", message: arrFail(t, "Sonarr", state.sonarrImport.error) });
+    }
+    if (state.jellyfinImport?.ok) {
+      flashes.push({
+        type: state.jellyfinImport.marked > 0 ? "success" : "info",
+        message: t.watchedImportOk
+          .replace("{marked}", String(state.jellyfinImport.marked))
+          .replace("{already}", String(state.jellyfinImport.alreadyWatched))
+          .replace("{noMatch}", String(state.jellyfinImport.noMatch)),
+      });
+    } else if (state.jellyfinImport) {
+      flashes.push({ type: "error", message: jellyFail(t, state.jellyfinImport.error) });
+    }
+    if (flashes.length === 0) return;
+    toastedStamp.current = state.stamp;
+    for (const flash of flashes) push(flash);
+  }, [state.stamp, state.radarrImport, state.sonarrImport, state.jellyfinImport, push, t]);
 
   return (
     <form className="settings-form" action={formAction} key={state.stamp} aria-busy={pending}>
       {state.saved ? <p className="ok">{t.settingsSaved}</p> : null}
-      {state.radarrImport?.ok ? (
-        <p className="ok">
-          {t.libraryImportOk
-            .replace("{added}", String(state.radarrImport.added))
-            .replace("{already}", String(state.radarrImport.alreadyOnList))
-            .replace("{skipped}", String(state.radarrImport.skippedNoTmdb))}
-        </p>
-      ) : null}
-      {state.sonarrImport?.ok ? (
-        <p className="ok">
-          {t.libraryImportOk
-            .replace("{added}", String(state.sonarrImport.added))
-            .replace("{already}", String(state.sonarrImport.alreadyOnList))
-            .replace("{skipped}", String(state.sonarrImport.skippedNoTmdb))}
-        </p>
-      ) : null}
-      {state.jellyfinImport?.ok ? (
-        <p className="ok">
-          {t.watchedImportOk
-            .replace("{marked}", String(state.jellyfinImport.marked))
-            .replace("{already}", String(state.jellyfinImport.alreadyWatched))
-            .replace("{noMatch}", String(state.jellyfinImport.noMatch))}
-        </p>
-      ) : null}
 
       <fieldset className="block span-all">
         <legend>{t.tmdbSection}</legend>
@@ -298,7 +313,6 @@ export function HouseholdForm({
         <label htmlFor="radarrApiKey">{t.apiKeyLabel}</label>
         <input id="radarrApiKey" name="radarrApiKey" className="field" type="password" autoComplete="off" defaultValue={settings.radarr.apiKey} />
         {radarrErr ? <p className="error">{radarrErr}</p> : null}
-        {radarrImportErr ? <p className="error">{radarrImportErr}</p> : null}
         <button className="btn secondary" type="submit" name="intent" value="probe-radarr" disabled={pending}>
           {t.loadRadarr}
         </button>
@@ -324,7 +338,6 @@ export function HouseholdForm({
         <label htmlFor="sonarrApiKey">{t.apiKeyLabel}</label>
         <input id="sonarrApiKey" name="sonarrApiKey" className="field" type="password" autoComplete="off" defaultValue={settings.sonarr.apiKey} />
         {sonarrErr ? <p className="error">{sonarrErr}</p> : null}
-        {sonarrImportErr ? <p className="error">{sonarrImportErr}</p> : null}
         <button className="btn secondary" type="submit" name="intent" value="probe-sonarr" disabled={pending}>
           {t.loadSonarr}
         </button>
@@ -353,7 +366,6 @@ export function HouseholdForm({
         <label htmlFor="jellyfinApiKey">{t.apiKeyLabel}</label>
         <input id="jellyfinApiKey" name="jellyfinApiKey" className="field" type="password" autoComplete="off" defaultValue={settings.jellyfin.apiKey} />
         {jellyErr ? <p className="error">{jellyErr}</p> : null}
-        {jellyImportErr ? <p className="error">{jellyImportErr}</p> : null}
         <button className="btn secondary" type="submit" name="intent" value="import-jellyfin-watched" disabled={pending}>
           {t.importWatched}
         </button>
