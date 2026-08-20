@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.0.2]
+
+- Fix confirmation dialogs (remove / acquire / mark watched) so the panel is opaque and readable over posters
+
 ## [1.0.1]
 
 - Fix GHCR Docker image build on Next.js 16 (empty `turbopack` config so production build can run alongside the Docker-dev webpack poll hook)
