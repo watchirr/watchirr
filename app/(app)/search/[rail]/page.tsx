@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { OutcomeToast } from "../../../toast-host";
 import { probeArr } from "@/lib/connect";
 import { discoverCatalog, isDiscoverRailId } from "@/lib/discover";
 import { access, currentLocale, currentTitleKind } from "@/lib/http";
@@ -80,6 +81,7 @@ export default async function DiscoverListPage({
 
   return (
     <main className="main">
+      {addError ? <OutcomeToast type="error" message={addError} clearParam="err" /> : null}
       <section className="panel glass wide">
         {error ? (
           <p className="error">
@@ -100,7 +102,6 @@ export default async function DiscoverListPage({
             hasNext={hasNext}
             selected={selected}
             onList={onList}
-            addError={addError}
             t={t}
             radarr={settings.radarr}
             sonarr={settings.sonarr}

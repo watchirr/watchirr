@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { OutcomeToast } from "../toast-host";
 import { issueSession, verifyLogin } from "@/lib/auth";
 import { access, setSessionCookie } from "@/lib/http";
 
@@ -31,12 +32,12 @@ export default async function LoginPage({
 
   return (
     <main className="panel glass">
+      {error ? <OutcomeToast type="error" message={error} clearParam="error" /> : null}
       <a href="/login" className="wordmark auth-brand">
         Watch<em>irr</em>
       </a>
       <h1>Log in</h1>
       <p className="lede">Admin access for this Household.</p>
-      {error ? <p className="error">{error}</p> : null}
       <form action={login}>
         <label htmlFor="login">Login</label>
         <input id="login" name="login" autoComplete="username" required maxLength={64} />

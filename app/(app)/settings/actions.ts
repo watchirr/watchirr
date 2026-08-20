@@ -20,6 +20,8 @@ export type HouseholdState = HouseholdLists & {
   settings: HouseholdSettings;
   saved: boolean;
   stamp: number;
+  /** Which integration Load button produced this state (toast seam). */
+  probed?: "tmdb" | "radarr" | "sonarr";
   radarrImport?: LibraryImportFlash;
   sonarrImport?: LibraryImportFlash;
   jellyfinImport?: WatchedImportFlash;
@@ -33,6 +35,7 @@ export function householdState(
     radarrImport?: LibraryImportFlash;
     sonarrImport?: LibraryImportFlash;
     jellyfinImport?: WatchedImportFlash;
+    probed?: "tmdb" | "radarr" | "sonarr";
   },
 ): HouseholdState {
   return {
@@ -40,6 +43,7 @@ export function householdState(
     ...lists,
     saved,
     stamp: Date.now(),
+    probed: flash?.probed,
     radarrImport: flash?.radarrImport,
     sonarrImport: flash?.sonarrImport,
     jellyfinImport: flash?.jellyfinImport,
@@ -62,38 +66,53 @@ export async function householdAction(prev: HouseholdState, formData: FormData):
 
   if (intent === "probe-tmdb") {
     const tmdb = await probeTmdb(settings.tmdbApiKey, settings.country);
-    return householdState(settings, {
-      tmdbReady: Boolean(tmdb.ok && !tmdb.skipped),
-      countries: tmdb.ok ? tmdb.data.countries : [],
-      providers: tmdb.ok ? tmdb.data.providers : [],
-      radarr: prev.radarr,
-      sonarr: prev.sonarr,
-      errors: { ...prev.errors, tmdb: tmdb.ok ? undefined : tmdb.error },
-    }, false);
+    return householdState(
+      settings,
+      {
+        tmdbReady: Boolean(tmdb.ok && !tmdb.skipped),
+        countries: tmdb.ok ? tmdb.data.countries : [],
+        providers: tmdb.ok ? tmdb.data.providers : [],
+        radarr: prev.radarr,
+        sonarr: prev.sonarr,
+        errors: { ...prev.errors, tmdb: tmdb.ok ? undefined : tmdb.error },
+      },
+      false,
+      { probed: "tmdb" },
+    );
   }
 
   if (intent === "probe-radarr") {
     const radarr = await probeArr("radarr", settings.radarr.url, settings.radarr.apiKey);
-    return householdState(settings, {
-      tmdbReady: prev.tmdbReady,
-      countries: prev.countries,
-      providers: prev.providers,
-      radarr: radarr.ok && !radarr.skipped ? radarr.data : { ready: false, qualityProfiles: [], rootFolders: [], languageProfiles: null },
-      sonarr: prev.sonarr,
-      errors: { ...prev.errors, radarr: radarr.ok ? undefined : radarr.error },
-    }, false);
+    return householdState(
+      settings,
+      {
+        tmdbReady: prev.tmdbReady,
+        countries: prev.countries,
+        providers: prev.providers,
+        radarr: radarr.ok && !radarr.skipped ? radarr.data : { ready: false, qualityProfiles: [], rootFolders: [], languageProfiles: null },
+        sonarr: prev.sonarr,
+        errors: { ...prev.errors, radarr: radarr.ok ? undefined : radarr.error },
+      },
+      false,
+      { probed: "radarr" },
+    );
   }
 
   if (intent === "probe-sonarr") {
     const sonarr = await probeArr("sonarr", settings.sonarr.url, settings.sonarr.apiKey);
-    return householdState(settings, {
-      tmdbReady: prev.tmdbReady,
-      countries: prev.countries,
-      providers: prev.providers,
-      radarr: prev.radarr,
-      sonarr: sonarr.ok && !sonarr.skipped ? sonarr.data : { ready: false, qualityProfiles: [], rootFolders: [], languageProfiles: null },
-      errors: { ...prev.errors, sonarr: sonarr.ok ? undefined : sonarr.error },
-    }, false);
+    return householdState(
+      settings,
+      {
+        tmdbReady: prev.tmdbReady,
+        countries: prev.countries,
+        providers: prev.providers,
+        radarr: prev.radarr,
+        sonarr: sonarr.ok && !sonarr.skipped ? sonarr.data : { ready: false, qualityProfiles: [], rootFolders: [], languageProfiles: null },
+        errors: { ...prev.errors, sonarr: sonarr.ok ? undefined : sonarr.error },
+      },
+      false,
+      { probed: "sonarr" },
+    );
   }
 
   if (intent === "import-radarr-library") {

@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useId,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -27,6 +28,33 @@ export function useToast() {
   const ctx = useContext(ToastContext);
   if (!ctx) throw new Error("useToast requires ToastProvider");
   return ctx;
+}
+
+/** One-shot toast from a server-rendered action outcome (e.g. `?err=`). */
+export function OutcomeToast({
+  type,
+  message,
+  clearParam,
+}: {
+  type: ToastType;
+  message: string;
+  clearParam?: string;
+}) {
+  const { push } = useToast();
+  const done = useRef(false);
+
+  useEffect(() => {
+    if (done.current) return;
+    done.current = true;
+    push({ type, message });
+    if (!clearParam) return;
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has(clearParam)) return;
+    url.searchParams.delete(clearParam);
+    history.replaceState(null, "", url);
+  }, [type, message, clearParam, push]);
+
+  return null;
 }
 
 export function ToastProvider({

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PublicRatingSlots } from "../public-rating-slots";
 import { TitleRail } from "../title-rail";
+import { OutcomeToast } from "../toast-host";
 import { ExpandSeasons } from "./expand-seasons";
 import { KeeperAcquire } from "./keeper-acquire";
 import { MarkWatched } from "./mark-watched";
@@ -198,6 +199,7 @@ export default async function WatchlistPage({
 
   return (
     <main className="main watchlist-main">
+      {arrError ? <OutcomeToast type="error" message={arrError} clearParam="err" /> : null}
       {listed.length === 0 ? (
         <section className="panel glass wide">
           <h1 className="section-head">{t.navWatchlist}</h1>
@@ -226,7 +228,6 @@ export default async function WatchlistPage({
           </aside>
 
           <section className="panel glass wide watchlist-body">
-            {arrError ? <p className="error">{arrError}</p> : null}
             <nav className="lens" aria-label={t.watchlistStatusFilter}>
               {sectionTabs.map((tab) => (
                 <Link

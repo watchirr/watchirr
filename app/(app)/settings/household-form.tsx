@@ -201,6 +201,7 @@ export function HouseholdForm({
 }) {
   const [state, formAction, pending] = useActionState(action, initial);
   const { push } = useToast();
+  const primed = useRef(false);
   const toastedStamp = useRef<number | null>(null);
   const { settings, errors } = state;
   const tmdbErr = fail(t, "TMDB", errors.tmdb);
@@ -211,8 +212,16 @@ export function HouseholdForm({
   const showServices = state.providers.length > 0;
 
   useEffect(() => {
+    if (!primed.current) {
+      primed.current = true;
+      toastedStamp.current = state.stamp;
+      return;
+    }
     if (toastedStamp.current === state.stamp) return;
     const flashes: { type: ToastType; message: string }[] = [];
+    if (state.saved) {
+      flashes.push({ type: "success", message: t.settingsSaved });
+    }
     if (state.radarrImport?.ok) {
       flashes.push({
         type: state.radarrImport.added > 0 ? "success" : "info",
@@ -246,15 +255,28 @@ export function HouseholdForm({
     } else if (state.jellyfinImport) {
       flashes.push({ type: "error", message: jellyFail(t, state.jellyfinImport.error) });
     }
-    if (flashes.length === 0) return;
+    if (state.probed === "tmdb" && tmdbErr) flashes.push({ type: "error", message: tmdbErr });
+    if (state.probed === "radarr" && radarrErr) flashes.push({ type: "error", message: radarrErr });
+    if (state.probed === "sonarr" && sonarrErr) flashes.push({ type: "error", message: sonarrErr });
     toastedStamp.current = state.stamp;
+    if (flashes.length === 0) return;
     for (const flash of flashes) push(flash);
-  }, [state.stamp, state.radarrImport, state.sonarrImport, state.jellyfinImport, push, t]);
+  }, [
+    state.stamp,
+    state.saved,
+    state.probed,
+    state.radarrImport,
+    state.sonarrImport,
+    state.jellyfinImport,
+    tmdbErr,
+    radarrErr,
+    sonarrErr,
+    push,
+    t,
+  ]);
 
   return (
     <form className="settings-form" action={formAction} key={state.stamp} aria-busy={pending}>
-      {state.saved ? <p className="ok">{t.settingsSaved}</p> : null}
-
       <fieldset className="block span-all">
         <legend>{t.tmdbSection}</legend>
         <label htmlFor="tmdbApiKey">{t.apiKeyLabel}</label>

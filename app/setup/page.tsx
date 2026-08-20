@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { OutcomeToast } from "../toast-host";
 import { issueSession, setupAdmin, SetupDoneError, validateCredentials } from "@/lib/auth";
 import { access, setSessionCookie } from "@/lib/http";
 
@@ -41,12 +42,12 @@ export default async function SetupPage({
 
   return (
     <main className="panel glass">
+      {error ? <OutcomeToast type="error" message={error} clearParam="error" /> : null}
       <a href="/setup" className="wordmark auth-brand">
         Watch<em>irr</em>
       </a>
       <h1>First-run setup</h1>
       <p className="lede">Create the Admin login. This completes once.</p>
-      {error ? <p className="error">{error}</p> : null}
       <form action={setup}>
         <label htmlFor="login">Login</label>
         <input id="login" name="login" autoComplete="username" required maxLength={64} />
