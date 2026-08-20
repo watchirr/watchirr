@@ -3,6 +3,7 @@ node_modules
 out
 data
 *.log
+.pipeline-logs/
 .DS_Store
 .env
 .env*.local
