@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { HttpGet } from "./connect.ts";
-import { parseCastCredits, parseKindFilter, parsePersonResults, parseSearchResults, parseTitleRef, personCast, posterUrl, searchPeople, searchTitles, titleCoverage } from "./tmdb.ts";
+import { parseCastCredits, parseKindFilter, parsePersonResults, parseSearchResults, parseTitleRef, personCast, posterUrl, searchPeople, searchTitles, titleCoverage, withTmdbPosters } from "./tmdb.ts";
 
 test("parseSearchResults keeps movie and TV with stable TMDB id + kind; drops people", () => {
   const titles = parseSearchResults({
@@ -220,4 +220,40 @@ test("titleCoverage hits watch/providers and keeps flatrate ∩ Paid Services on
   });
   assert.match(seen, /\/tv\/1396\/watch\/providers/);
   assert.deepEqual(rentOnly, { ok: true, services: [] });
+});
+
+test("withTmdbPosters fills missing poster_path from movie/tv detail", async () => {
+  const urls: string[] = [];
+  const titles = await withTmdbPosters(
+    "k",
+    [
+      { tmdbId: 550, kind: "movie", name: "Fight Club", year: 1999, posterPath: null },
+      { tmdbId: 1396, kind: "tv", name: "Breaking Bad", year: 2008, posterPath: "/keep.jpg" },
+    ],
+    "pt-BR",
+    async (url) => {
+      urls.push(url);
+      if (url.includes("/movie/550")) {
+        return {
+          status: 200,
+          json: { id: 550, title: "Fight Club", release_date: "1999-10-15", poster_path: "/fight.jpg" },
+        };
+      }
+      return { status: 500, json: null };
+    },
+  );
+  assert.equal(urls.length, 1);
+  assert.match(urls[0]!, /\/movie\/550\?/);
+  assert.match(urls[0]!, /language=pt-BR/);
+  assert.deepEqual(titles, [
+    { tmdbId: 550, kind: "movie", name: "Fight Club", year: 1999, posterPath: "/fight.jpg" },
+    { tmdbId: 1396, kind: "tv", name: "Breaking Bad", year: 2008, posterPath: "/keep.jpg" },
+  ]);
+
+  assert.deepEqual(
+    await withTmdbPosters("", [{ tmdbId: 1, kind: "movie", name: "X", year: null, posterPath: null }], "en-US", async () => {
+      throw new Error("no fetch");
+    }),
+    [{ tmdbId: 1, kind: "movie", name: "X", year: null, posterPath: null }],
+  );
 });

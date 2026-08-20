@@ -212,6 +212,7 @@ export async function importLibraryTitles(
   const seen = new Set(items.map((i) => `${i.title.kind}:${i.title.tmdbId}`));
   let added = 0;
   let alreadyOnList = 0;
+  let dirty = false;
   const now = Date.now();
   const next = [...items];
 
@@ -220,6 +221,14 @@ export async function importLibraryTitles(
     const key = `${title.kind}:${title.tmdbId}`;
     if (seen.has(key)) {
       alreadyOnList += 1;
+      // Re-run backfills posters when Library Import previously stored null.
+      if (title.posterPath) {
+        const i = next.findIndex((row) => `${row.title.kind}:${row.title.tmdbId}` === key);
+        if (i >= 0 && !next[i].title.posterPath) {
+          next[i] = { ...next[i], title: { ...next[i].title, posterPath: title.posterPath } };
+          dirty = true;
+        }
+      }
       continue;
     }
     next.push({
@@ -234,7 +243,7 @@ export async function importLibraryTitles(
     added += 1;
   }
 
-  if (added > 0) await putItems(store, next);
+  if (added > 0 || dirty) await putItems(store, next);
   return { added, alreadyOnList };
 }
 

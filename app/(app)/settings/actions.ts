@@ -2,9 +2,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { listRadarrLibrary, listSonarrLibrary, type ArrError } from "@/lib/arr";
 import { probeAll, probeArr, probeTmdb, type HouseholdLists } from "@/lib/connect";
-import { access } from "@/lib/http";
+import { access, currentLocale } from "@/lib/http";
 import { jellyfinProgress, type JellyfinError } from "@/lib/jellyfin";
 import { getSettings, putSettings, settingsFromForm, type HouseholdSettings } from "@/lib/settings";
+import { withTmdbPosters } from "@/lib/tmdb";
 import { importLibraryTitles, syncJellyfinWatched } from "@/lib/watchlist";
 
 export type LibraryImportFlash =
@@ -108,7 +109,9 @@ export async function householdAction(prev: HouseholdState, formData: FormData):
     if (!listed.ok) {
       return householdState(settings, lists, false, { radarrImport: listed });
     }
-    const imported = await importLibraryTitles(store, listed.titles);
+    const locale = await currentLocale();
+    const titles = await withTmdbPosters(settings.tmdbApiKey, listed.titles, locale);
+    const imported = await importLibraryTitles(store, titles);
     revalidatePath("/");
     revalidatePath("/search");
     return householdState(settings, lists, false, {
@@ -134,7 +137,9 @@ export async function householdAction(prev: HouseholdState, formData: FormData):
     if (!listed.ok) {
       return householdState(settings, lists, false, { sonarrImport: listed });
     }
-    const imported = await importLibraryTitles(store, listed.titles);
+    const locale = await currentLocale();
+    const titles = await withTmdbPosters(settings.tmdbApiKey, listed.titles, locale);
+    const imported = await importLibraryTitles(store, titles);
     revalidatePath("/");
     revalidatePath("/search");
     return householdState(settings, lists, false, {

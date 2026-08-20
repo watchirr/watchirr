@@ -853,3 +853,19 @@ test("importLibraryTitles adds In Library Items without coverage or Acquire", as
   assert.deepEqual(third, { added: 0, alreadyOnList: 1 });
   assert.equal((await listItems(store)).filter((i) => i.title.tmdbId === 20001).length, 1);
 });
+
+test("importLibraryTitles backfills posterPath on already-on-list re-run", async () => {
+  const bare = {
+    tmdbId: 20010,
+    kind: "movie" as const,
+    name: "Posterless",
+    year: 2010,
+    posterPath: null,
+  };
+  await importLibraryTitles(store, [bare]);
+  assert.equal((await findItem(store, 20010, "movie"))?.title.posterPath, null);
+
+  const filled = await importLibraryTitles(store, [{ ...bare, posterPath: "/p.jpg" }]);
+  assert.deepEqual(filled, { added: 0, alreadyOnList: 1 });
+  assert.equal((await findItem(store, 20010, "movie"))?.title.posterPath, "/p.jpg");
+});
