@@ -197,6 +197,8 @@ export function HouseholdForm({
   const jellyErr = fail(t, "Jellyfin", errors.jellyfin);
   const radarrImportErr =
     state.radarrImport && !state.radarrImport.ok ? arrFail(t, "Radarr", state.radarrImport.error) : null;
+  const sonarrImportErr =
+    state.sonarrImport && !state.sonarrImport.ok ? arrFail(t, "Sonarr", state.sonarrImport.error) : null;
   const showCountry = state.tmdbReady && state.countries.length > 0;
   const showServices = state.providers.length > 0;
 
@@ -209,6 +211,14 @@ export function HouseholdForm({
             .replace("{added}", String(state.radarrImport.added))
             .replace("{already}", String(state.radarrImport.alreadyOnList))
             .replace("{skipped}", String(state.radarrImport.skippedNoTmdb))}
+        </p>
+      ) : null}
+      {state.sonarrImport?.ok ? (
+        <p className="ok">
+          {t.libraryImportOk
+            .replace("{added}", String(state.sonarrImport.added))
+            .replace("{already}", String(state.sonarrImport.alreadyOnList))
+            .replace("{skipped}", String(state.sonarrImport.skippedNoTmdb))}
         </p>
       ) : null}
 
@@ -296,6 +306,7 @@ export function HouseholdForm({
         <label htmlFor="sonarrApiKey">{t.apiKeyLabel}</label>
         <input id="sonarrApiKey" name="sonarrApiKey" className="field" type="password" autoComplete="off" defaultValue={settings.sonarr.apiKey} />
         {sonarrErr ? <p className="error">{sonarrErr}</p> : null}
+        {sonarrImportErr ? <p className="error">{sonarrImportErr}</p> : null}
         <button className="btn secondary" type="submit" name="intent" value="probe-sonarr" disabled={pending}>
           {t.loadSonarr}
         </button>
@@ -312,6 +323,9 @@ export function HouseholdForm({
           langId={settings.sonarr.languageProfileId}
           t={t}
         />
+        <button className="btn secondary" type="submit" name="intent" value="import-sonarr-library" disabled={pending}>
+          {t.importToWatchlist}
+        </button>
       </fieldset>
 
       <fieldset className="block">

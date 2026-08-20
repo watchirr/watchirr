@@ -5,9 +5,11 @@ import {
   arrDrop,
   arrLibraryLookup,
   listRadarrLibrary,
+  listSonarrLibrary,
   lookupInLibrary,
   movieDefaultsReady,
   parseRadarrMovies,
+  parseSonarrSeries,
   seriesDefaultsReady,
   tvdbIdForTmdb,
 } from "./arr.ts";
@@ -328,6 +330,50 @@ test("listRadarrLibrary GETs /api/v3/movie and surfaces unreachable", async () =
 
   const bare = await listRadarrLibrary({
     radarr: { ...settings.radarr, url: "", apiKey: "" },
+  });
+  assert.deepEqual(bare, { ok: false, error: "missing-defaults" });
+});
+
+test("parseSonarrSeries maps TV Titles and skips missing TMDB id", () => {
+  const { titles, skippedNoTmdb } = parseSonarrSeries([
+    { title: "Breaking Bad", tmdbId: 1396, year: 2008 },
+    { title: "TVDB only", tvdbId: 81189, year: 2008 },
+    { title: "The Wire", tmdbId: 1438, year: 2002, originalTitle: "The Wire" },
+    { tmdbId: 0, title: "Zero id" },
+  ]);
+  assert.equal(skippedNoTmdb, 2);
+  assert.deepEqual(titles, [
+    { tmdbId: 1396, kind: "tv", name: "Breaking Bad", year: 2008, posterPath: null },
+    { tmdbId: 1438, kind: "tv", name: "The Wire", year: 2002, posterPath: null },
+  ]);
+});
+
+test("listSonarrLibrary GETs /api/v3/series and surfaces unreachable", async () => {
+  const get = fakeGet({
+    "/api/v3/series": {
+      status: 200,
+      json: [
+        { title: "Breaking Bad", tmdbId: 1396, year: 2008 },
+        { title: "Orphan", tvdbId: 1, year: 2010 },
+      ],
+    },
+  });
+  const listed = await listSonarrLibrary(settings, get);
+  assert.equal(listed.ok, true);
+  if (!listed.ok) return;
+  assert.equal(listed.skippedNoTmdb, 1);
+  assert.deepEqual(listed.titles, [
+    { tmdbId: 1396, kind: "tv", name: "Breaking Bad", year: 2008, posterPath: null },
+  ]);
+
+  const down = await listSonarrLibrary(settings, async () => ({ error: "unreachable" }));
+  assert.deepEqual(down, { ok: false, error: "arr-unreachable" });
+
+  const denied = await listSonarrLibrary(settings, async () => ({ status: 401, json: null }));
+  assert.deepEqual(denied, { ok: false, error: "arr-unauthorized" });
+
+  const bare = await listSonarrLibrary({
+    sonarr: { ...settings.sonarr, url: "", apiKey: "" },
   });
   assert.deepEqual(bare, { ok: false, error: "missing-defaults" });
 });

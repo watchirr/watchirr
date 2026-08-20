@@ -275,6 +275,50 @@ export async function listRadarrLibrary(
   return { ok: true, ...parseRadarrMovies("error" in res ? null : res.json) };
 }
 
+/** Map Sonarr GET /api/v3/series rows to TV Titles; skip missing TMDB id (no TVDB fallback). */
+export function parseSonarrSeries(json: unknown): { titles: Title[]; skippedNoTmdb: number } {
+  if (!Array.isArray(json)) return { titles: [], skippedNoTmdb: 0 };
+  const titles: Title[] = [];
+  let skippedNoTmdb = 0;
+  for (const row of json) {
+    if (!row || typeof row !== "object") continue;
+    const o = row as Record<string, unknown>;
+    const tmdbId = num(o.tmdbId);
+    if (!tmdbId) {
+      skippedNoTmdb += 1;
+      continue;
+    }
+    const name = str(o.title) || str(o.originalTitle);
+    if (!name) continue;
+    const yearRaw = o.year;
+    const year =
+      typeof yearRaw === "number" && Number.isInteger(yearRaw) && yearRaw > 0
+        ? yearRaw
+        : num(yearRaw);
+    titles.push({
+      tmdbId,
+      kind: "tv",
+      name,
+      year: year && year >= 1000 ? year : null,
+      // ponytail: Sonarr posters are MediaCover URLs, not TMDB paths — null is fine (spec).
+      posterPath: null,
+    });
+  }
+  return { titles, skippedNoTmdb };
+}
+
+/** One-shot Library Import list: series already In Library in Sonarr. */
+export async function listSonarrLibrary(
+  settings: Pick<HouseholdSettings, "sonarr">,
+  get: HttpGet = defaultGet,
+): Promise<LibraryListResult> {
+  if (!arrReachable(settings.sonarr)) return { ok: false, error: "missing-defaults" };
+  const res = await get(joinUrl(settings.sonarr.url, "/api/v3/series"), arrHeaders(settings.sonarr.apiKey));
+  const status = classify(res);
+  if (status !== "ok") return { ok: false, error: asArrError(status) };
+  return { ok: true, ...parseSonarrSeries("error" in res ? null : res.json) };
+}
+
 /** Season numbers for the add/expand UI (Sonarr; no specials). */
 export async function listSeriesSeasons(
   settings: HouseholdSettings,
