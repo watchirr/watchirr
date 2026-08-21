@@ -116,6 +116,8 @@ export const messages = {
   discoverPage: "Page {page}",
   railPrev: "Previous",
   railNext: "Next",
+  toastRegion: "Notifications",
+  toastDismiss: "Dismiss",
 } as const;
 
 export type Messages = { [K in keyof typeof messages]: string };

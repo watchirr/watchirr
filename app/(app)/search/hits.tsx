@@ -213,7 +213,6 @@ export function SearchHits({
   personId,
   selected: initial,
   onList,
-  addError,
   t,
   radarr,
   sonarr,
@@ -225,7 +224,6 @@ export function SearchHits({
   personId?: number;
   selected?: Title;
   onList: string[];
-  addError?: string;
   t: Messages;
 } & HeroChrome) {
   const [selected, setSelected] = useState(initial);
@@ -246,35 +244,32 @@ export function SearchHits({
   }
 
   return (
-    <>
-      {addError ? <p className="error">{addError}</p> : null}
-      <ul className="hits">
-        {titles.map((hit) => {
-          const on = selected?.tmdbId === hit.tmdbId && selected.kind === hit.kind;
-          const saved = listed.has(keyOf(hit));
-          return (
-            <li
-              key={hitId(hit)}
-              className={on ? "hero-slot" : undefined}
-              style={{ viewTransitionName: hitId(hit) }}
-            >
-              {on ? (
-                <SearchHero hit={hit} saved={saved} q={q} personId={personId} preview={preview} {...chrome} />
-              ) : (
-                <button type="button" className="hit" onClick={() => pick(hit)}>
-                  <Art path={hit.posterPath} />
-                  <span className="meta">
-                    <span className="name">{hit.name}</span>
-                    <span className="sub">{[hit.year, kindLabel(t, hit.kind)].filter(Boolean).join(" · ")}</span>
-                    {saved ? <span className="sub">{t.searchOnList}</span> : null}
-                  </span>
-                </button>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-    </>
+    <ul className="hits">
+      {titles.map((hit) => {
+        const on = selected?.tmdbId === hit.tmdbId && selected.kind === hit.kind;
+        const saved = listed.has(keyOf(hit));
+        return (
+          <li
+            key={hitId(hit)}
+            className={on ? "hero-slot" : undefined}
+            style={{ viewTransitionName: hitId(hit) }}
+          >
+            {on ? (
+              <SearchHero hit={hit} saved={saved} q={q} personId={personId} preview={preview} {...chrome} />
+            ) : (
+              <button type="button" className="hit" onClick={() => pick(hit)}>
+                <Art path={hit.posterPath} />
+                <span className="meta">
+                  <span className="name">{hit.name}</span>
+                  <span className="sub">{[hit.year, kindLabel(t, hit.kind)].filter(Boolean).join(" · ")}</span>
+                  {saved ? <span className="sub">{t.searchOnList}</span> : null}
+                </span>
+              </button>
+            )}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -282,7 +277,6 @@ export function DiscoverRails({
   rails,
   selected: initial,
   onList,
-  addError,
   t,
   radarr,
   sonarr,
@@ -292,7 +286,6 @@ export function DiscoverRails({
   rails: { id: DiscoverRailId; titles: Title[] }[];
   selected?: Title;
   onList: string[];
-  addError?: string;
   t: Messages;
 } & HeroChrome) {
   const [selected, setSelected] = useState(initial);
@@ -315,11 +308,10 @@ export function DiscoverRails({
     heroRef.current?.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
   }
 
-  if (shown.length === 0 && !selected && !addError) return null;
+  if (shown.length === 0 && !selected) return null;
 
   return (
     <div className="discover" role="region" aria-label={t.discoverTitle}>
-      {addError ? <p className="error">{addError}</p> : null}
       {selected ? (
         <SearchHero
           hit={selected}
@@ -393,7 +385,6 @@ export function DiscoverList({
   hasNext,
   selected: initial,
   onList,
-  addError,
   t,
   radarr,
   sonarr,
@@ -406,7 +397,6 @@ export function DiscoverList({
   hasNext: boolean;
   selected?: Title;
   onList: string[];
-  addError?: string;
   t: Messages;
 } & HeroChrome) {
   const [selected, setSelected] = useState(initial);
@@ -432,7 +422,6 @@ export function DiscoverList({
 
   return (
     <div className="discover" role="region" aria-label={label}>
-      {addError ? <p className="error">{addError}</p> : null}
       {selected ? (
         <SearchHero
           hit={selected}

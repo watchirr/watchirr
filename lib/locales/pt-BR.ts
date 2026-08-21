@@ -118,4 +118,6 @@ export const messages = {
   discoverPage: "Página {page}",
   railPrev: "Anterior",
   railNext: "Próximo",
+  toastRegion: "Notificações",
+  toastDismiss: "Fechar",
 } as const satisfies Messages;

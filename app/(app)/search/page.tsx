@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { OutcomeToast } from "../../toast-host";
 import { probeArr } from "@/lib/connect";
 import { DISCOVER_RAILS, discoverCatalog, type DiscoverRailId } from "@/lib/discover";
 import { access, currentLocale, currentTitleKind } from "@/lib/http";
@@ -120,6 +121,7 @@ export default async function SearchPage({
 
   return (
     <main className="main">
+      {addError ? <OutcomeToast type="error" message={addError} clearParam="err" /> : null}
       <section className="panel glass wide">
         {error ? (
           <p className="error">
@@ -166,7 +168,6 @@ export default async function SearchPage({
             rails={discoverRails}
             selected={selected}
             onList={onList}
-            addError={addError}
             t={t}
             radarr={settings.radarr}
             sonarr={settings.sonarr}
@@ -185,7 +186,6 @@ export default async function SearchPage({
               personId={personId ?? undefined}
               selected={selected}
               onList={onList}
-              addError={addError}
               t={t}
               radarr={settings.radarr}
               sonarr={settings.sonarr}
