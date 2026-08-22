@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.0.7]
+
+- Opaque toast fills so page text no longer shows through the message
+
 ## [1.0.6]
 
 - Fix toasts on HTTP homelab hosts (not localhost): ids no longer use `crypto.randomUUID`, which throws outside a Secure Context and showed a generic error page after login, Settings Save, and Import

@@ -553,22 +553,22 @@ select:focus {
 
 .toast-success {
   color: var(--brand-deep);
-  background: rgba(13, 143, 159, 0.18);
+  background: #e8f6f8;
 }
 
 .toast-info {
   color: var(--ink);
-  background: rgba(84, 105, 122, 0.14);
+  background: #f3f5f7;
 }
 
 .toast-warning {
   color: var(--warn);
-  background: rgba(196, 92, 22, 0.14);
+  background: #fbf0e6;
 }
 
 .toast-error {
   color: #9b1c1c;
-  background: rgba(155, 28, 28, 0.12);
+  background: #f8e8e8;
 }
 
 @keyframes toast-in {
@@ -1763,27 +1763,15 @@ button.rail-card {
   select,
   .checks,
   .kind-filter-thumb,
-  .rail-nav,
-  .toast {
+  .rail-nav {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
     background: rgba(255, 255, 255, 0.92);
   }
 
-  .toast-success {
-    background: rgba(13, 143, 159, 0.16);
-  }
-
-  .toast-info {
-    background: rgba(84, 105, 122, 0.12);
-  }
-
-  .toast-warning {
-    background: rgba(196, 92, 22, 0.12);
-  }
-
-  .toast-error {
-    background: rgba(155, 28, 28, 0.1);
+  .toast {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 }
 
