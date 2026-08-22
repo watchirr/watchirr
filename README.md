@@ -38,7 +38,7 @@ Open http://localhost:3001
 
 Open `http://<host>:3001`
 
-Both paths use the published image `ghcr.io/watchirr/watchirr:v1.0.4` and store SQLite at `./data/watchirr.db` on the host. Optional Postgres and reverse-proxy notes live in **[docs/self-host.md](./docs/self-host.md)**.
+Both paths use the published image `ghcr.io/watchirr/watchirr:v1.0.5` and store SQLite at `./data/watchirr.db` on the host. Optional Postgres and reverse-proxy notes live in **[docs/self-host.md](./docs/self-host.md)**.
 
 ## First run
 

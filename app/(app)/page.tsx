@@ -163,6 +163,9 @@ export default async function WatchlistPage({
   const ratingMap = await resolveMany(
     inSection.map((i) => asRef(i.title)),
     deps,
+    // ponytail: sequential OMDb/TMDB over a full library blows past proxy idle/timeouts
+    // (Settings POST + revalidate then 412 "Connection closed"). Remainder stays cached/absent.
+    { budgetMs: 2000 },
   );
 
   const candidates = inSection.map((i) => {

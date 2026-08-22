@@ -6,7 +6,7 @@
 # TMDB / OMDb / *arr keys → Settings after login. See docs/self-host.md.
 services:
   watchirr:
-    image: ghcr.io/watchirr/watchirr:v1.0.4
+    image: ghcr.io/watchirr/watchirr:v1.0.5
     ports:
       - "3001:3000"
     volumes:

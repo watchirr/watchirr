@@ -54,7 +54,7 @@ Stock `docker-compose.example.yml` (same runtime shape as `portainer-stack.yml`)
 ```yaml
 services:
   watchirr:
-    image: ghcr.io/watchirr/watchirr:v1.0.4
+    image: ghcr.io/watchirr/watchirr:v1.0.5
     ports:
       - "3001:3000"
     volumes:
@@ -64,7 +64,7 @@ services:
       # DATABASE_URL: postgres://watchirr:watchirr@db:5432/watchirr
 ```
 
-Pinned image is `ghcr.io/watchirr/watchirr:v1.0.4`. `:latest` is fine for smoke tests; check [GHCR packages](https://github.com/orgs/watchirr/packages) / releases for newer tags.
+Pinned image is `ghcr.io/watchirr/watchirr:v1.0.5`. `:latest` is fine for smoke tests; check [GHCR packages](https://github.com/orgs/watchirr/packages) / releases for newer tags.
 
 ### Update (keep data)
 
@@ -98,7 +98,7 @@ Paste **`portainer-stack.yml`** (same behavior as the Compose example; comments 
 2. Paste `portainer-stack.yml` so that:
    - `./data` (or an absolute host path) is bind-mounted to `/data`, and
    - `DATA_DIR=/data` is set,
-   - `image:` is the pinned GHCR tag (default `ghcr.io/watchirr/watchirr:v1.0.4`).
+   - `image:` is the pinned GHCR tag (default `ghcr.io/watchirr/watchirr:v1.0.5`).
 3. Deploy. Open `http://<host>:3001`.
 
 Relative `./data` is resolved on the Portainer host relative to the stack’s working directory — use an absolute path if your Portainer setup needs it.

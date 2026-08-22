@@ -1,4 +1,4 @@
-import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { listRadarrLibrary, listSonarrLibrary, type ArrError } from "@/lib/arr";
 import { probeAll, probeArr, probeTmdb, type HouseholdLists } from "@/lib/connect";
@@ -129,11 +129,12 @@ export async function householdAction(prev: HouseholdState, formData: FormData):
       if (!listed.ok) {
         return householdState(settings, lists, false, { radarrImport: listed });
       }
+      const imported = await importLibraryTitles(store, listed.titles);
       const locale = await currentLocale();
-      const titles = await withTmdbPosters(settings.tmdbApiKey, listed.titles, locale);
-      const imported = await importLibraryTitles(store, titles);
-      // ponytail: do not revalidatePath("/") here — prod would re-render the whole Watchlist
-      // (OMDb/Jellyfin) into this POST; proxy kills it after the import already saved.
+      after(async () => {
+        const titles = await withTmdbPosters(settings.tmdbApiKey, listed.titles, locale);
+        await importLibraryTitles(store, titles);
+      });
       return householdState(settings, lists, false, {
         radarrImport: {
           ok: true,
@@ -161,9 +162,12 @@ export async function householdAction(prev: HouseholdState, formData: FormData):
       if (!listed.ok) {
         return householdState(settings, lists, false, { sonarrImport: listed });
       }
+      const imported = await importLibraryTitles(store, listed.titles);
       const locale = await currentLocale();
-      const titles = await withTmdbPosters(settings.tmdbApiKey, listed.titles, locale);
-      const imported = await importLibraryTitles(store, titles);
+      after(async () => {
+        const titles = await withTmdbPosters(settings.tmdbApiKey, listed.titles, locale);
+        await importLibraryTitles(store, titles);
+      });
       return householdState(settings, lists, false, {
         sonarrImport: {
           ok: true,
@@ -214,6 +218,5 @@ export async function householdAction(prev: HouseholdState, formData: FormData):
   }
 
   await putSettings(store, settings);
-  revalidatePath("/", "layout");
   return householdState(settings, await probeAll(settings), true);
 }
