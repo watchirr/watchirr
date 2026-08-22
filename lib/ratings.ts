@@ -225,10 +225,18 @@ export async function resolvePublicRatings(title: TitleRef, deps: ResolveDeps): 
 export async function resolveMany(
   titles: TitleRef[],
   deps: ResolveDeps,
+  opts?: { budgetMs?: number },
 ): Promise<Map<string, PublicRatings>> {
   const out = new Map<string, PublicRatings>();
+  const clock = deps.now ?? Date.now;
+  const deadline = opts?.budgetMs != null ? clock() + opts.budgetMs : Number.POSITIVE_INFINITY;
   for (const title of titles) {
-    out.set(titleKey(title), await resolvePublicRatings(title, deps));
+    const key = titleKey(title);
+    if (clock() > deadline) {
+      out.set(key, deps.cache[key]?.ratings ?? { ...absentRatings });
+      continue;
+    }
+    out.set(key, await resolvePublicRatings(title, deps));
   }
   return out;
 }

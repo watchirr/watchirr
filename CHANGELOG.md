@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.5]
+
+- Fix Settings **Save** and Library Import in production: do not refresh the Watchlist on the same POST (that Flight stream died with a generic error page after the write already succeeded)
+- Import writes the Watchlist first and fills posters after the response
+- Cap Watchlist Public Ratings lookups per page load so a large library cannot stall the router
+
 ## [1.0.4]
 
 - Fix Settings **Import to Watchlist** / **Import Watched** in production: after a successful import, stay on Settings with a toast instead of a generic error page (Watchlist is not re-rendered on the same request)

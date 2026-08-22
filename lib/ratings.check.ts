@@ -15,6 +15,7 @@ import {
   putRatingsCache,
   RATINGS_NEGATIVE_TTL_MS,
   RATINGS_TTL_MS,
+  resolveMany,
   resolvePublicRatings,
   titleKey,
   type ImdbLookup,
@@ -217,6 +218,27 @@ test("Still-to-watch featuring: highest Tomatometer; tie → last added; unscore
   );
   assert.equal(unscored.featuredKey, "movie:2");
   assert.deepEqual(unscored.remainderKeys, ["movie:1"]);
+});
+
+test("resolveMany budgetMs skips remaining network lookups", async () => {
+  let t = 0;
+  let lookups = 0;
+  const titles = [1, 2, 3, 4].map((n) => ({ tmdbId: n, kind: "movie" as const }));
+  const map = await resolveMany(titles, {
+    omdbApiKey: "k",
+    tmdbApiKey: "k",
+    cache: {},
+    save: async () => {},
+    now: () => t,
+    imdbLookup: async () => {
+      lookups += 1;
+      t += 1000;
+      return { ok: false };
+    },
+  }, { budgetMs: 2500 });
+  assert.equal(lookups, 3);
+  assert.equal(map.size, 4);
+  assert.deepEqual(map.get("movie:4"), absentRatings);
 });
 
 test("Coming in / Watched featuring ignores Tomatometer (last added only)", () => {
