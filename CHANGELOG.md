@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.0.4]
+
+- Fix Settings **Import to Watchlist** / **Import Watched** in production: after a successful import, stay on Settings with a toast instead of a generic error page (Watchlist is not re-rendered on the same request)
+
 ## [1.0.3]
 
 - Library Import: one-shot Admin **Import to Watchlist** from Radarr and Sonarr (Settings), skipping coverage/Acquire and entries without a TMDB id
