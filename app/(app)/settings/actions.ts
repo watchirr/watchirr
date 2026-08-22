@@ -124,23 +124,27 @@ export async function householdAction(prev: HouseholdState, formData: FormData):
       sonarr: prev.sonarr,
       errors: prev.errors,
     };
-    const listed = await listRadarrLibrary(settings);
-    if (!listed.ok) {
-      return householdState(settings, lists, false, { radarrImport: listed });
+    try {
+      const listed = await listRadarrLibrary(settings);
+      if (!listed.ok) {
+        return householdState(settings, lists, false, { radarrImport: listed });
+      }
+      const locale = await currentLocale();
+      const titles = await withTmdbPosters(settings.tmdbApiKey, listed.titles, locale);
+      const imported = await importLibraryTitles(store, titles);
+      // ponytail: do not revalidatePath("/") here — prod would re-render the whole Watchlist
+      // (OMDb/Jellyfin) into this POST; proxy kills it after the import already saved.
+      return householdState(settings, lists, false, {
+        radarrImport: {
+          ok: true,
+          added: imported.added,
+          alreadyOnList: imported.alreadyOnList,
+          skippedNoTmdb: listed.skippedNoTmdb,
+        },
+      });
+    } catch {
+      return householdState(settings, lists, false, { radarrImport: { ok: false, error: "arr-failed" } });
     }
-    const locale = await currentLocale();
-    const titles = await withTmdbPosters(settings.tmdbApiKey, listed.titles, locale);
-    const imported = await importLibraryTitles(store, titles);
-    revalidatePath("/");
-    revalidatePath("/search");
-    return householdState(settings, lists, false, {
-      radarrImport: {
-        ok: true,
-        added: imported.added,
-        alreadyOnList: imported.alreadyOnList,
-        skippedNoTmdb: listed.skippedNoTmdb,
-      },
-    });
   }
 
   if (intent === "import-sonarr-library") {
@@ -152,23 +156,25 @@ export async function householdAction(prev: HouseholdState, formData: FormData):
       sonarr: prev.sonarr,
       errors: prev.errors,
     };
-    const listed = await listSonarrLibrary(settings);
-    if (!listed.ok) {
-      return householdState(settings, lists, false, { sonarrImport: listed });
+    try {
+      const listed = await listSonarrLibrary(settings);
+      if (!listed.ok) {
+        return householdState(settings, lists, false, { sonarrImport: listed });
+      }
+      const locale = await currentLocale();
+      const titles = await withTmdbPosters(settings.tmdbApiKey, listed.titles, locale);
+      const imported = await importLibraryTitles(store, titles);
+      return householdState(settings, lists, false, {
+        sonarrImport: {
+          ok: true,
+          added: imported.added,
+          alreadyOnList: imported.alreadyOnList,
+          skippedNoTmdb: listed.skippedNoTmdb,
+        },
+      });
+    } catch {
+      return householdState(settings, lists, false, { sonarrImport: { ok: false, error: "arr-failed" } });
     }
-    const locale = await currentLocale();
-    const titles = await withTmdbPosters(settings.tmdbApiKey, listed.titles, locale);
-    const imported = await importLibraryTitles(store, titles);
-    revalidatePath("/");
-    revalidatePath("/search");
-    return householdState(settings, lists, false, {
-      sonarrImport: {
-        ok: true,
-        added: imported.added,
-        alreadyOnList: imported.alreadyOnList,
-        skippedNoTmdb: listed.skippedNoTmdb,
-      },
-    });
   }
 
   if (intent === "import-jellyfin-watched") {
@@ -180,26 +186,31 @@ export async function householdAction(prev: HouseholdState, formData: FormData):
       sonarr: prev.sonarr,
       errors: prev.errors,
     };
-    if (!settings.jellyfin.url.trim() || !settings.jellyfin.apiKey.trim()) {
+    try {
+      if (!settings.jellyfin.url.trim() || !settings.jellyfin.apiKey.trim()) {
+        return householdState(settings, lists, false, {
+          jellyfinImport: { ok: false, error: "missing-defaults" },
+        });
+      }
+      const synced = await syncJellyfinWatched(store, {
+        progress: jellyfinProgress(settings),
+      });
+      if (!synced.ok) {
+        return householdState(settings, lists, false, { jellyfinImport: synced });
+      }
       return householdState(settings, lists, false, {
-        jellyfinImport: { ok: false, error: "missing-defaults" },
+        jellyfinImport: {
+          ok: true,
+          marked: synced.marked,
+          alreadyWatched: synced.alreadyWatched,
+          noMatch: synced.noMatch,
+        },
+      });
+    } catch {
+      return householdState(settings, lists, false, {
+        jellyfinImport: { ok: false, error: "jellyfin-failed" },
       });
     }
-    const synced = await syncJellyfinWatched(store, {
-      progress: jellyfinProgress(settings),
-    });
-    if (!synced.ok) {
-      return householdState(settings, lists, false, { jellyfinImport: synced });
-    }
-    revalidatePath("/");
-    return householdState(settings, lists, false, {
-      jellyfinImport: {
-        ok: true,
-        marked: synced.marked,
-        alreadyWatched: synced.alreadyWatched,
-        noMatch: synced.noMatch,
-      },
-    });
   }
 
   await putSettings(store, settings);
