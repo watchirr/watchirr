@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.0.6]
+
+- Fix toasts on HTTP homelab hosts (not localhost): ids no longer use `crypto.randomUUID`, which throws outside a Secure Context and showed a generic error page after login, Settings Save, and Import
+
 ## [1.0.5]
 
 - Fix Settings **Save** and Library Import in production: do not refresh the Watchlist on the same POST (that Flight stream died with a generic error page after the write already succeeded)

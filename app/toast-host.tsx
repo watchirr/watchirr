@@ -69,8 +69,9 @@ export function ToastProvider({
   const [stack, setStack] = useState<ToastEntry[]>([]);
 
   const push = useCallback((toast: ToastPush) => {
+    // ponytail: HTTP LAN hosts (e.g. *.local) are not Secure Contexts — crypto.randomUUID throws.
     const entry: ToastEntry = {
-      id: crypto.randomUUID(),
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       type: toast.type,
       message: toast.message,
     };
