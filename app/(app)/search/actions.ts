@@ -64,6 +64,7 @@ export async function addWatchlistAction(formData: FormData): Promise<void> {
     {
       qualityProfileId: num(formData.get("qualityProfileId")),
       rootFolder: str(formData.get("rootFolder")) || undefined,
+      minimumAvailability: kindRaw === "movie" ? str(formData.get("minimumAvailability")) || undefined : undefined,
       seasons: kindRaw === "tv" ? seasons : undefined,
     },
   );

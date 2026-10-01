@@ -10,7 +10,7 @@ import { discoverListPath, type DiscoverRailId } from "@/lib/discover";
 import type { Messages } from "@/lib/locale";
 import type { PublicRatings } from "@/lib/ratings";
 import { absentRatings, titleKey } from "@/lib/ratings";
-import type { ArrSettings } from "@/lib/settings";
+import type { ArrSettings, RadarrSettings } from "@/lib/settings";
 import { posterUrl, type Title } from "@/lib/tmdb";
 import { loadSearchHeroAction } from "./actions";
 import { AddWatchlist } from "./add-watchlist";
@@ -63,7 +63,7 @@ type HeroPreview = {
 
 type HeroChrome = {
   t: Messages;
-  radarr: ArrSettings;
+  radarr: RadarrSettings;
   sonarr: ArrSettings & { languageProfileId: number | null };
   radarrLists: ArrLists;
   sonarrLists: ArrLists;

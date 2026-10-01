@@ -32,6 +32,7 @@ const settings: HouseholdSettings = {
     apiKey: "rk",
     rootFolder: "/movies",
     qualityProfileId: 4,
+    minimumAvailability: "released",
   },
   sonarr: {
     url: "http://sonarr:8989",
@@ -79,8 +80,9 @@ test("season pick locks monitored seasons only when In Library", () => {
   assert.deepEqual(seasonChoice(seasons, [1, 2], true), { locked: [1, 2], choosable: [3] });
 });
 
-test("uncovered movie Acquire hits Radarr with override quality/root", async () => {
+test("uncovered movie Acquire sends the resolved minimum availability and still searches", async () => {
   const posts: { url: string; body: Record<string, unknown> }[] = [];
+  const puts: string[] = [];
   const get = fakeGet({
     "/api/v3/movie/lookup": { status: 200, json: [{ title: "Fight Club", tmdbId: 550, year: 1999 }] },
   });
@@ -88,18 +90,70 @@ test("uncovered movie Acquire hits Radarr with override quality/root", async () 
     posts.push({ url, body: body as Record<string, unknown> });
     return { status: 201, json: { id: 1 } };
   };
-  const acquire = arrAcquire(settings, get, post);
-  const result = await acquire(
-    { tmdbId: 550, kind: "movie", name: "Fight Club", year: 1999, posterPath: null },
-    { qualityProfileId: 9, rootFolder: "/uhd" },
-  );
-  assert.equal(result.ok, true);
-  assert.equal(posts.length, 1);
+  const put: HttpPost = async (url) => {
+    puts.push(url);
+    return { status: 202, json: {} };
+  };
+  const movie = { tmdbId: 550, kind: "movie" as const, name: "Fight Club", year: 1999, posterPath: null };
+  const acquire = (radarr: HouseholdSettings["radarr"], opts?: Parameters<ReturnType<typeof arrAcquire>>[1]) =>
+    arrAcquire({ ...settings, radarr }, get, post, put)(movie, opts);
+
+  posts.length = 0;
+  const announced = await acquire({ ...settings.radarr, minimumAvailability: "announced" });
+  assert.equal(announced.ok, true);
+  assert.equal(posts[0]?.body.minimumAvailability, "announced");
+  assert.deepEqual(posts[0]?.body.addOptions, { searchForMovie: true });
+
+  posts.length = 0;
+  const override = await acquire(settings.radarr, {
+    qualityProfileId: 9,
+    rootFolder: "/uhd",
+    minimumAvailability: "inCinemas",
+  });
+  assert.equal(override.ok, true);
   assert.equal(posts[0]?.url, "http://radarr:7878/api/v3/movie");
   assert.equal(posts[0]?.body.qualityProfileId, 9);
   assert.equal(posts[0]?.body.rootFolderPath, "/uhd");
-  assert.equal(posts[0]?.body.minimumAvailability, "released");
+  assert.equal(posts[0]?.body.minimumAvailability, "inCinemas");
   assert.equal(posts[0]?.body.monitored, true);
+  assert.deepEqual(posts[0]?.body.addOptions, { searchForMovie: true });
+
+  posts.length = 0;
+  const { minimumAvailability: _saved, ...bare } = settings.radarr;
+  const fallback = await acquire(bare as HouseholdSettings["radarr"]);
+  assert.equal(fallback.ok, true);
+  assert.equal(posts[0]?.body.minimumAvailability, "released");
+
+  posts.length = 0;
+  const unknownPerAdd = await acquire(
+    { ...settings.radarr, minimumAvailability: "announced" },
+    { minimumAvailability: "tba" },
+  );
+  assert.equal(unknownPerAdd.ok, true);
+  assert.equal(posts[0]?.body.minimumAvailability, "announced");
+
+  posts.length = 0;
+  const unknownDefault = await acquire({ ...settings.radarr, minimumAvailability: "deleted" as "released" });
+  assert.equal(unknownDefault.ok, true);
+  assert.equal(posts[0]?.body.minimumAvailability, "released");
+
+  posts.length = 0;
+  const unknownBoth = await acquire(
+    { ...settings.radarr, minimumAvailability: "deleted" as "released" },
+    { minimumAvailability: "" },
+  );
+  assert.equal(unknownBoth.ok, true);
+  assert.equal(posts[0]?.body.minimumAvailability, "released");
+
+  const inLibraryGet = fakeGet({
+    "/api/v3/movie/lookup": { status: 200, json: [{ title: "Fight Club", id: 42, tmdbId: 550 }] },
+  });
+  posts.length = 0;
+  puts.length = 0;
+  const skipped = await arrAcquire(settings, inLibraryGet, post, put)(movie);
+  assert.equal(skipped.ok, true);
+  assert.deepEqual(posts, []);
+  assert.deepEqual(puts, []);
 });
 
 test("already In Library movie → library true and Acquire does not POST", async () => {
@@ -107,9 +161,14 @@ test("already In Library movie → library true and Acquire does not POST", asyn
     "/api/v3/movie/lookup": { status: 200, json: [{ title: "Fight Club", id: 42, tmdbId: 550 }] },
   });
   const posts: string[] = [];
+  const puts: string[] = [];
   const post: HttpPost = async (url) => {
     posts.push(url);
     return { status: 201, json: {} };
+  };
+  const put: HttpPost = async (url) => {
+    puts.push(url);
+    return { status: 202, json: {} };
   };
   const lib = await arrLibraryLookup(settings, get)({
     tmdbId: 550,
@@ -119,7 +178,7 @@ test("already In Library movie → library true and Acquire does not POST", asyn
     posterPath: null,
   });
   assert.deepEqual(lib, { ok: true, inLibrary: true });
-  const acq = await arrAcquire(settings, get, post)({
+  const acq = await arrAcquire(settings, get, post, put)({
     tmdbId: 550,
     kind: "movie",
     name: "Fight Club",
@@ -128,6 +187,7 @@ test("already In Library movie → library true and Acquire does not POST", asyn
   });
   assert.equal(acq.ok, true);
   assert.deepEqual(posts, []);
+  assert.deepEqual(puts, []);
 });
 
 test("TV Acquire monitors only selected seasons", async () => {
@@ -164,6 +224,7 @@ test("TV Acquire monitors only selected seasons", async () => {
   assert.equal(posts[0]?.url, "http://sonarr:8989/api/v3/series");
   assert.equal(posts[0]?.body.qualityProfileId, 2);
   assert.equal(posts[0]?.body.rootFolderPath, "/tv");
+  assert.equal(Object.hasOwn(posts[0]?.body ?? {}, "minimumAvailability"), false);
   assert.equal(posts[0]?.body.languageProfileId, 1);
   const seasons = posts[0]?.body.seasons as { seasonNumber: number; monitored: boolean }[];
   assert.deepEqual(

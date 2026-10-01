@@ -14,7 +14,7 @@ import {
   type ProbeError,
 } from "./connect.ts";
 import type { ArrSettings, HouseholdSettings } from "./settings.ts";
-import { num, str } from "./settings.ts";
+import { minimumAvailability, num, str, type MinimumAvailability } from "./settings.ts";
 import type { Title } from "./tmdb.ts";
 
 export type ArrError =
@@ -37,6 +37,8 @@ function asArrError(status: ProbeError): ArrError {
 export type AcquireOpts = {
   qualityProfileId?: number | null;
   rootFolder?: string;
+  /** Movie only. A valid choice overrides the Household default; anything else falls through. */
+  minimumAvailability?: string;
   /** TV only: season numbers to monitor (specials / 0 excluded). */
   seasons?: number[];
 };
@@ -60,6 +62,11 @@ function arrHeaders(apiKey: string): Record<string, string> {
 
 export function arrReachable(arr: Pick<ArrSettings, "url" | "apiKey">): boolean {
   return Boolean(arr.url.trim() && arr.apiKey.trim());
+}
+
+function movieMinimumAvailability(household: unknown, perAdd: unknown): MinimumAvailability {
+  if (perAdd === "announced" || perAdd === "inCinemas" || perAdd === "released") return perAdd;
+  return minimumAvailability(household);
 }
 
 export function movieDefaultsReady(
@@ -441,8 +448,7 @@ export function arrAcquire(
         qualityProfileId: ready.qualityProfileId,
         rootFolderPath: ready.rootFolder,
         monitored: true,
-        // ponytail: Radarr requires a MovieStatusType; Settings override later if Household wants announced/inCinemas.
-        minimumAvailability: "released",
+        minimumAvailability: movieMinimumAvailability(settings.radarr.minimumAvailability, opts?.minimumAvailability),
         addOptions: { searchForMovie: true },
       };
       const res = await post(joinUrl(settings.radarr.url, "/api/v3/movie"), arrHeaders(settings.radarr.apiKey), body);
