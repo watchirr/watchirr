@@ -252,12 +252,17 @@ export async function probeTmdb(
   return { ok: true, data: { countries, providers } };
 }
 
+/** Jellyfin 12 rejects legacy `X-Emby-Token`. `Authorization: MediaBrowser Token` only. */
+export function jellyfinHeaders(apiKey: string): Record<string, string> {
+  return {
+    Authorization: `MediaBrowser Token="${apiKey.trim()}"`,
+    Accept: "application/json",
+  };
+}
+
 export async function probeJellyfin(url: string, apiKey: string, get: HttpGet = defaultGet): Promise<Probe<null>> {
   if (!url.trim() || !apiKey.trim()) return { ok: true, skipped: true, data: null };
-  const res = await get(joinUrl(url, "/System/Info"), {
-    "X-Emby-Token": apiKey.trim(),
-    Accept: "application/json",
-  });
+  const res = await get(joinUrl(url, "/System/Info"), jellyfinHeaders(apiKey));
   const c = classify(res);
   if (c !== "ok") return { ok: false, error: c };
   return { ok: true, data: null };

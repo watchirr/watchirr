@@ -117,10 +117,16 @@ test("jellyfinProgress skips empty settings; polls users then Movie/Series", asy
   ]);
 });
 
-test("jellyfinProgress surfaces unauthorized", async () => {
+test("jellyfinProgress surfaces unauthorized and sends MediaBrowser auth", async () => {
+  let auth = "";
   const result = await jellyfinProgress(
     { jellyfin: { url: "http://jellyfin:8096", apiKey: "jk" } },
-    async () => ({ status: 401, json: null }),
+    async (_url, headers) => {
+      auth = headers.Authorization ?? "";
+      assert.equal(headers["X-Emby-Token"], undefined);
+      return { status: 401, json: null };
+    },
   )();
+  assert.equal(auth, 'MediaBrowser Token="jk"');
   assert.deepEqual(result, { ok: false, error: "jellyfin-unauthorized" });
 });

@@ -1,6 +1,7 @@
 import {
   classify,
   defaultGet,
+  jellyfinHeaders,
   joinUrl,
   type HttpGet,
   type ProbeError,
@@ -23,10 +24,6 @@ function asJellyError(status: ProbeError): JellyfinError {
   if (status === "unreachable") return "jellyfin-unreachable";
   if (status === "unauthorized") return "jellyfin-unauthorized";
   return "jellyfin-failed";
-}
-
-function jellyHeaders(apiKey: string): Record<string, string> {
-  return { "X-Emby-Token": apiKey.trim(), Accept: "application/json" };
 }
 
 /** ADR 0004: any progress > 0% (not a 90% bar); Played counts as progress. */
@@ -96,7 +93,7 @@ export function jellyfinProgress(
     const apiKey = settings.jellyfin.apiKey.trim();
     if (!url || !apiKey) return { ok: true, progressed: [] };
 
-    const headers = jellyHeaders(apiKey);
+    const headers = jellyfinHeaders(apiKey);
     const usersRes = await get(joinUrl(url, "/Users"), headers);
     const usersClass = classify(usersRes);
     if (usersClass !== "ok") return { ok: false, error: asJellyError(usersClass) };
