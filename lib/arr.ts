@@ -103,6 +103,25 @@ export function pickerSeasons(hit: Record<string, unknown>): number[] {
   return out.sort((a, b) => a - b);
 }
 
+/**
+ * Already-monitored seasons lock only when the series is In Library.
+ * Expand-only passes the same flag. A lookup monitored flag on a new Add is not a lock.
+ */
+export function seasonChoice(
+  seasons: number[],
+  monitored: number[],
+  inLibrary: boolean,
+): { locked: number[]; choosable: number[] } {
+  const held = new Set(monitored);
+  const locked: number[] = [];
+  const choosable: number[] = [];
+  for (const n of seasons) {
+    if (inLibrary && held.has(n)) locked.push(n);
+    else choosable.push(n);
+  }
+  return { locked, choosable };
+}
+
 export function monitoredSeasons(hit: Record<string, unknown>): number[] {
   const rows = Array.isArray(hit.seasons) ? hit.seasons : [];
   const out: number[] = [];

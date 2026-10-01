@@ -647,7 +647,7 @@ select:focus {
   width: min(100%, 16rem);
 }
 
-.acquire-fields label {
+.acquire-fields > label {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
