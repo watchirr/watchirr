@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.8]
+
+- New movie Acquires can choose Radarr minimum availability; a Household default in Settings pre-fills each add (until one is saved, Acquire still sends Released)
+- Season Remove unmonitors chosen TV seasons and can delete only those episode files; the series and Watchlist Item stay
+- TV Add can pick seasons before the series is In Library
+
 ## [1.0.7]
 
 - Opaque toast fills so page text no longer shows through the message
