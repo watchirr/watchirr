@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.0.9]
+
+- Fix Jellyfin 12 authentication: settings probes and watched sync send a MediaBrowser token (Jellyfin 12 rejects the legacy header)
+
 ## [1.0.8]
 
 - New movie Acquires can choose Radarr minimum availability; a Household default in Settings pre-fills each add (until one is saved, Acquire still sends Released)
