@@ -23,7 +23,7 @@ import {
   titleKey,
   type PublicRatings,
 } from "@/lib/ratings";
-import { getSettings, type ArrSettings } from "@/lib/settings";
+import { getSettings, type RadarrSettings } from "@/lib/settings";
 import { posterUrl } from "@/lib/tmdb";
 import {
   byKind,
@@ -81,7 +81,7 @@ function ItemActions({
   view: WatchlistView;
   section: WatchlistSection;
   t: Messages;
-  radarr: ArrSettings;
+  radarr: RadarrSettings;
   radarrLists: ArrLists;
 }) {
   const hit = item.title;

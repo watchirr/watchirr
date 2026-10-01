@@ -3,7 +3,7 @@
 import type { ArrLists, NamedId } from "@/lib/connect";
 import type { DiscoverRailId } from "@/lib/discover";
 import type { Messages } from "@/lib/locale";
-import type { ArrSettings } from "@/lib/settings";
+import type { ArrSettings, RadarrSettings } from "@/lib/settings";
 import type { Title } from "@/lib/tmdb";
 import { ActionDialog } from "../action-dialog";
 import { SeasonPicker } from "../season-picker";
@@ -29,7 +29,7 @@ function AcquireFields({
 }: {
   hit: Title;
   t: Messages;
-  radarr: ArrSettings;
+  radarr: RadarrSettings;
   sonarr: ArrSettings & { languageProfileId: number | null };
   radarrLists: ArrLists;
   sonarrLists: ArrLists;
@@ -67,7 +67,18 @@ function AcquireFields({
           ))}
         </select>
       </label>
-      {hit.kind === "tv" ? <SeasonPicker tmdbId={hit.tmdbId} t={t} /> : null}
+      {hit.kind === "movie" ? (
+        <label>
+          <span className="sub">{t.minimumAvailabilityLabel}</span>
+          <select className="field" name="minimumAvailability" defaultValue={radarr.minimumAvailability}>
+            <option value="announced">{t.minimumAvailabilityAnnounced}</option>
+            <option value="inCinemas">{t.minimumAvailabilityInCinemas}</option>
+            <option value="released">{t.minimumAvailabilityReleased}</option>
+          </select>
+        </label>
+      ) : (
+        <SeasonPicker tmdbId={hit.tmdbId} t={t} />
+      )}
     </div>
   );
 }
@@ -88,7 +99,7 @@ export function AddWatchlist({
   personId?: number;
   fromList?: { rail: DiscoverRailId; page: number };
   t: Messages;
-  radarr: ArrSettings;
+  radarr: RadarrSettings;
   sonarr: ArrSettings & { languageProfileId: number | null };
   radarrLists: ArrLists;
   sonarrLists: ArrLists;

@@ -59,8 +59,28 @@ test("parseSettings fills defaults; roundtrip keeps Admin picks", () => {
   assert.equal(saved.country, "BR");
   assert.deepEqual(saved.paidServiceIds, [8, 9]);
   assert.equal(saved.radarr.qualityProfileId, 4);
+  assert.equal(saved.radarr.minimumAvailability, "released");
+  assert.equal("minimumAvailability" in saved.sonarr, false);
   assert.equal(saved.sonarr.languageProfileId, 1);
   assert.deepEqual(parseSettings(serializeSettings(saved)), saved);
+
+  const withStatus = parseSettings(
+    JSON.stringify({
+      radarr: { url: "http://radarr", apiKey: "r", rootFolder: "/movies", qualityProfileId: 4, minimumAvailability: "inCinemas" },
+      sonarr: { url: "http://sonarr", apiKey: "s", minimumAvailability: "announced" },
+    }),
+  );
+  assert.equal(withStatus.radarr.minimumAvailability, "inCinemas");
+  assert.equal("minimumAvailability" in withStatus.sonarr, false);
+  assert.equal(parseSettings(serializeSettings(withStatus)).radarr.minimumAvailability, "inCinemas");
+  assert.equal(
+    parseSettings(JSON.stringify({ radarr: { minimumAvailability: "tba" } })).radarr.minimumAvailability,
+    "released",
+  );
+  assert.equal(
+    parseSettings(JSON.stringify({ radarr: { minimumAvailability: "" } })).radarr.minimumAvailability,
+    "released",
+  );
 });
 
 test("settings persist on the store and reload", async () => {
@@ -83,6 +103,7 @@ test("settingsFromForm reads Paid Services multi-select and *arr defaults", () =
   form.set("radarrApiKey", "rk");
   form.set("radarrRootFolder", "/movies");
   form.set("radarrQualityProfileId", "4");
+  form.set("radarrMinimumAvailability", "inCinemas");
   form.set("sonarrUrl", "http://sonarr:8989");
   form.set("sonarrApiKey", "sk");
   form.set("sonarrRootFolder", "/tv");
@@ -95,7 +116,14 @@ test("settingsFromForm reads Paid Services multi-select and *arr defaults", () =
   assert.equal(s.omdbApiKey, "omdb-key");
   assert.deepEqual(s.paidServiceIds, [8, 9]);
   assert.equal(s.radarr.qualityProfileId, 4);
+  assert.equal(s.radarr.minimumAvailability, "inCinemas");
+  assert.equal("minimumAvailability" in s.sonarr, false);
   assert.equal(s.sonarr.languageProfileId, 1);
+  const blank = settingsFromForm(new FormData());
+  assert.equal(blank.radarr.minimumAvailability, "released");
+  form.set("radarrMinimumAvailability", "tba");
+  assert.equal(settingsFromForm(form).radarr.minimumAvailability, "released");
+  assert.equal("minimumAvailability" in settingsFromForm(form).sonarr, false);
 });
 
 test("joinUrl strips trailing slash; TMDB regions/providers parse live-shaped JSON", () => {
@@ -192,7 +220,7 @@ test("probeAll records per-service errors and keeps other lists", async () => {
       ...emptySettings,
       tmdbApiKey: "k",
       country: "US",
-      radarr: { url: "http://radarr", apiKey: "r", rootFolder: "", qualityProfileId: null },
+      radarr: { url: "http://radarr", apiKey: "r", rootFolder: "", qualityProfileId: null, minimumAvailability: "released" },
       jellyfin: { url: "http://jf", apiKey: "j" },
     },
     fake({

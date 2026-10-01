@@ -9,12 +9,22 @@ export type ArrSettings = {
   qualityProfileId: number | null;
 };
 
+export const MOVIE_STATUSES = ["announced", "inCinemas", "released"] as const;
+export type MinimumAvailability = (typeof MOVIE_STATUSES)[number];
+
+/** Radarr’s three statuses. Anything else, including empty, is Released. */
+export function minimumAvailability(value: unknown): MinimumAvailability {
+  return value === "announced" || value === "inCinemas" || value === "released" ? value : "released";
+}
+
+export type RadarrSettings = ArrSettings & { minimumAvailability: MinimumAvailability };
+
 export type HouseholdSettings = {
   tmdbApiKey: string;
   omdbApiKey: string;
   country: string;
   paidServiceIds: number[];
-  radarr: ArrSettings;
+  radarr: RadarrSettings;
   sonarr: ArrSettings & { languageProfileId: number | null };
   jellyfin: { url: string; apiKey: string };
 };
@@ -26,7 +36,7 @@ export const emptySettings: HouseholdSettings = {
   omdbApiKey: "",
   country: "",
   paidServiceIds: [],
-  radarr: { ...emptyArr },
+  radarr: { ...emptyArr, minimumAvailability: "released" },
   sonarr: { ...emptyArr, languageProfileId: null },
   jellyfin: { url: "", apiKey: "" },
 };
@@ -60,6 +70,11 @@ function arrFrom(raw: unknown): ArrSettings {
   };
 }
 
+function radarrFrom(raw: unknown): RadarrSettings {
+  const o = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  return { ...arrFrom(raw), minimumAvailability: minimumAvailability(o.minimumAvailability) };
+}
+
 export function parseSettings(raw: string | null | undefined): HouseholdSettings {
   if (!raw) return structuredClone(emptySettings);
   try {
@@ -73,7 +88,7 @@ export function parseSettings(raw: string | null | undefined): HouseholdSettings
       omdbApiKey: str(o.omdbApiKey),
       country: str(o.country).toUpperCase().replace(/[^A-Z]/g, "").slice(0, 2),
       paidServiceIds: uniqueInts(Array.isArray(o.paidServiceIds) ? o.paidServiceIds : []),
-      radarr: arrFrom(o.radarr),
+      radarr: radarrFrom(o.radarr),
       sonarr: { ...arrFrom(o.sonarr), languageProfileId: num(sonarrRaw.languageProfileId) },
       jellyfin: { url: str(jelly.url), apiKey: str(jelly.apiKey) },
     };
@@ -97,6 +112,7 @@ export function settingsFromForm(formData: FormData): HouseholdSettings {
       apiKey: str(formData.get("radarrApiKey")),
       rootFolder: str(formData.get("radarrRootFolder")),
       qualityProfileId: num(formData.get("radarrQualityProfileId")),
+      minimumAvailability: minimumAvailability(formData.get("radarrMinimumAvailability")),
     },
     sonarr: {
       url: str(formData.get("sonarrUrl")),

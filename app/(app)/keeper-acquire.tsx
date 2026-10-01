@@ -1,7 +1,7 @@
 "use client";
 
 import type { ArrLists } from "@/lib/connect";
-import type { ArrSettings } from "@/lib/settings";
+import type { RadarrSettings } from "@/lib/settings";
 import type { TitleKind } from "@/lib/tmdb";
 import type { WatchlistSection, WatchlistView } from "@/lib/watchlist";
 import type { Messages } from "@/lib/locale";
@@ -35,7 +35,7 @@ export function KeeperAcquire({
   section: WatchlistSection;
   title: string;
   t: Messages;
-  radarr: ArrSettings;
+  radarr: RadarrSettings;
   radarrLists: ArrLists;
 }) {
   const radarrProfiles = withDefaultProfile(radarrLists.qualityProfiles, radarr.qualityProfileId);
@@ -85,6 +85,14 @@ export function KeeperAcquire({
                   {f.path}
                 </option>
               ))}
+            </select>
+          </label>
+          <label>
+            <span className="sub">{t.minimumAvailabilityLabel}</span>
+            <select className="field" name="minimumAvailability" defaultValue={radarr.minimumAvailability}>
+              <option value="announced">{t.minimumAvailabilityAnnounced}</option>
+              <option value="inCinemas">{t.minimumAvailabilityInCinemas}</option>
+              <option value="released">{t.minimumAvailabilityReleased}</option>
             </select>
           </label>
         </div>

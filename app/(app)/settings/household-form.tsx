@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { useToast } from "../../toast-host";
 import type { Messages } from "@/lib/locale";
 import type { ArrError } from "@/lib/arr";
+import type { MinimumAvailability } from "@/lib/settings";
 import type { JellyfinError } from "@/lib/jellyfin";
 import type { ToastType } from "@/lib/toast";
 import type { HouseholdState } from "./actions";
@@ -120,6 +121,8 @@ function ArrPicks({
   folder,
   profileId,
   langId,
+  availabilityName,
+  availability,
   t,
 }: {
   ready: boolean;
@@ -132,6 +135,8 @@ function ArrPicks({
   folder: string;
   profileId: number | null;
   langId?: number | null;
+  availabilityName?: string;
+  availability?: MinimumAvailability;
   t: Messages;
 }) {
   const folderOpts = withSaved(folders, { path: folder }, "path").filter((f) => f.path);
@@ -147,6 +152,7 @@ function ArrPicks({
         {keep(folderName, folder)}
         {keep(profileName, profileId)}
         {langName ? keep(langName, langId) : null}
+        {availabilityName ? keep(availabilityName, availability ?? "released") : null}
       </>
     );
   }
@@ -171,6 +177,16 @@ function ArrPicks({
           </option>
         ))}
       </select>
+      {availabilityName ? (
+        <>
+          <label htmlFor={availabilityName}>{t.defaultMinimumAvailabilityLabel}</label>
+          <select id={availabilityName} name={availabilityName} className="field" defaultValue={availability ?? "released"}>
+            <option value="announced">{t.minimumAvailabilityAnnounced}</option>
+            <option value="inCinemas">{t.minimumAvailabilityInCinemas}</option>
+            <option value="released">{t.minimumAvailabilityReleased}</option>
+          </select>
+        </>
+      ) : null}
       {langName && langOpts ? (
         <>
           <label htmlFor={langName}>{t.languageProfileLabel}</label>
@@ -346,6 +362,8 @@ export function HouseholdForm({
           profiles={state.radarr.qualityProfiles}
           folder={settings.radarr.rootFolder}
           profileId={settings.radarr.qualityProfileId}
+          availabilityName="radarrMinimumAvailability"
+          availability={settings.radarr.minimumAvailability}
           t={t}
         />
         <button className="btn secondary" type="submit" name="intent" value="import-radarr-library" disabled={pending}>

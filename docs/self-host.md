@@ -137,8 +137,8 @@ Without TMDB, Search cannot load Titles.
 ### Radarr (movies)
 
 1. **URL** + **API key**.
-2. **Load from Radarr** → choose default **root folder** and **quality profile**.
-3. Per-add Acquire can override quality/folder (Seerr-style); Settings hold the defaults.
+2. **Load from Radarr** → choose default **root folder**, **quality profile**, and **minimum availability** beside it (Announced, In cinemas, or Released). Until a default is saved, new movies use Released.
+3. Each new movie Acquire can override quality, folder, and minimum availability; Settings hold the defaults.
 
 ### Sonarr (TV)
 
