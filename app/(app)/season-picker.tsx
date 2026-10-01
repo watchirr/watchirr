@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { seasonChoice } from "@/lib/arr";
 import type { Messages } from "@/lib/locale";
 import { loadSeriesSeasonsAction } from "./seasons-actions";
 
@@ -46,7 +47,8 @@ export function SeasonPicker({
   }, [tmdbId]);
 
   function toggle(n: number) {
-    if (monitored.has(n)) return;
+    const { choosable } = seasonChoice(seasons, [...monitored], expandOnly || inLibrary);
+    if (!choosable.includes(n)) return;
     setPicked((prev) => {
       const next = new Set(prev);
       if (next.has(n)) next.delete(n);
@@ -59,15 +61,14 @@ export function SeasonPicker({
   if (status === "error") return <p className="error">{t.searchSeasonsFailed}</p>;
   if (seasons.length === 0) return <p className="sub">{t.searchSeasonsFailed}</p>;
 
-  const available = seasons.filter((n) => !monitored.has(n));
   const showExpand = expandOnly || inLibrary;
-  if (showExpand && available.length === 0) {
+  const { locked, choosable } = seasonChoice(seasons, [...monitored], showExpand);
+  if (showExpand && choosable.length === 0) {
     return <p className="sub">{t.searchSeasonsNoneLeft}</p>;
   }
 
-  const choosable = showExpand ? available : seasons;
+  const held = new Set(locked);
   const latest = choosable.length > 0 ? Math.max(...choosable) : undefined;
-  const rows = showExpand ? seasons : choosable;
 
   return (
     <fieldset className="season-picker">
@@ -86,9 +87,8 @@ export function SeasonPicker({
         </div>
       ) : null}
       <ul className="season-list">
-        {rows.map((n) => {
-          const already = monitored.has(n);
-          if (showExpand && already) {
+        {seasons.map((n) => {
+          if (held.has(n)) {
             return (
               <li key={n}>
                 <div className="season-row is-monitored">

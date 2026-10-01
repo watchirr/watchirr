@@ -10,6 +10,7 @@ import {
   movieDefaultsReady,
   parseRadarrMovies,
   parseSonarrSeries,
+  seasonChoice,
   seriesDefaultsReady,
   tvdbIdForTmdb,
 } from "./arr.ts";
@@ -64,6 +65,13 @@ test("lookupInLibrary treats numeric id as already In Library", () => {
   assert.deepEqual(lookupInLibrary([{ title: "X", id: 12, tmdbId: 550 }]).inLibrary, true);
   assert.deepEqual(lookupInLibrary([{ title: "X", tmdbId: 550 }]).inLibrary, false);
   assert.deepEqual(lookupInLibrary([]).hit, null);
+});
+
+test("season pick locks monitored seasons only when In Library", () => {
+  const seasons = [1, 2, 3];
+  assert.deepEqual(seasonChoice(seasons, seasons, false), { locked: [], choosable: seasons });
+  assert.deepEqual(seasonChoice(seasons, [1], true), { locked: [1], choosable: [2, 3] });
+  assert.deepEqual(seasonChoice(seasons, [1, 2], true), { locked: [1, 2], choosable: [3] });
 });
 
 test("uncovered movie Acquire hits Radarr with override quality/root", async () => {
