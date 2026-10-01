@@ -4,6 +4,7 @@ import { PublicRatingSlots } from "../public-rating-slots";
 import { TitleRail } from "../title-rail";
 import { OutcomeToast } from "../toast-host";
 import { ExpandSeasons } from "./expand-seasons";
+import { SeasonRemove } from "./season-remove";
 import { KeeperAcquire } from "./keeper-acquire";
 import { MarkWatched } from "./mark-watched";
 import { RemoveItem } from "./remove-item";
@@ -47,7 +48,7 @@ function Art({ path, size }: { path: string | null; size?: "w185" | "w342" }) {
 }
 
 function arrFail(t: Messages, error: string): string {
-  if (error === "missing-seasons") return t.searchAddMissingSeasons;
+  if (error === "missing-seasons") return t.watchlistSeasonRemoveHint;
   if (error === "missing-defaults") return t.searchAddMissingDefaults;
   if (error === "missing-tvdb") return t.searchAddMissingTvdb;
   if (error === "not-found") return t.searchAddNotFound.replace("{service}", "Radarr/Sonarr");
@@ -100,6 +101,15 @@ function ItemActions({
       ) : null}
       {item.inLibrary && hit.kind === "tv" && !item.watched ? (
         <ExpandSeasons tmdbId={hit.tmdbId} title={hit.name} t={t} />
+      ) : null}
+      {item.inLibrary && hit.kind === "tv" ? (
+        <SeasonRemove
+          tmdbId={hit.tmdbId}
+          title={hit.name}
+          view={view}
+          section={section}
+          t={t}
+        />
       ) : null}
       {!item.watched ? (
         <MarkWatched
@@ -202,7 +212,13 @@ export default async function WatchlistPage({
 
   return (
     <main className="main watchlist-main">
-      {arrError ? <OutcomeToast type="error" message={arrError} clearParam="err" /> : null}
+      {arrError ? (
+        <OutcomeToast
+          type={params.err === "missing-seasons" ? "info" : "error"}
+          message={arrError}
+          clearParam="err"
+        />
+      ) : null}
       {listed.length === 0 ? (
         <section className="panel glass wide">
           <h1 className="section-head">{t.navWatchlist}</h1>

@@ -160,6 +160,34 @@ export function addMonitoredSeasons(hit: Record<string, unknown>, selected: numb
   });
 }
 
+/** Season Remove: turn the chosen seasons off. Every other season, including Specials, stays as it is. */
+function dropMonitoredSeasons(hit: Record<string, unknown>, drop: number[]): unknown[] {
+  const gone = new Set(drop);
+  const rows = Array.isArray(hit.seasons) ? hit.seasons : [];
+  return rows.map((row) => {
+    if (!row || typeof row !== "object") return row;
+    const o = { ...(row as Record<string, unknown>) };
+    const n = num(o.seasonNumber) ?? 0;
+    if (gone.has(n)) o.monitored = false;
+    return o;
+  });
+}
+
+function episodeFileIds(json: unknown, seasons: number[]): number[] {
+  if (!Array.isArray(json)) return [];
+  const want = new Set(seasons);
+  const ids: number[] = [];
+  for (const row of json) {
+    if (!row || typeof row !== "object") continue;
+    const o = row as Record<string, unknown>;
+    const season = num(o.seasonNumber);
+    const id = num(o.id);
+    if (!season || !want.has(season) || !id || ids.includes(id)) continue;
+    ids.push(id);
+  }
+  return ids;
+}
+
 /** Lookup payload: Radarr/Sonarr set numeric `id` when the Title is already In Library. */
 export function lookupInLibrary(json: unknown): { hit: Record<string, unknown> | null; inLibrary: boolean } {
   const row = Array.isArray(json) ? json[0] : json;
@@ -500,4 +528,68 @@ export function arrDrop(
     );
     return dropResult(res);
   };
+}
+
+/**
+ * Season Remove. Unmonitor the chosen seasons first, then delete only their episode files.
+ * A file-delete failure monitors those seasons again. This never deletes the series.
+ */
+export async function removeSeriesSeasons(
+  settings: HouseholdSettings,
+  tmdbId: number,
+  seasons: number[],
+  deleteFiles: boolean,
+  get: HttpGet = defaultGet,
+  put: HttpPut = defaultPut,
+  del: HttpDelete = defaultDelete,
+): Promise<AcquireResult> {
+  const requested = parseSeasonNumbers(seasons);
+  if (requested.length === 0) return { ok: false, error: "missing-seasons" };
+  if (!arrReachable(settings.sonarr)) return { ok: false, error: "missing-defaults" };
+
+  const tvdb = await tvdbIdForTmdb(settings.tmdbApiKey, tmdbId, get);
+  if (!tvdb.ok) return tvdb;
+  const looked = await sonarrLookup(settings.sonarr.url, settings.sonarr.apiKey, tvdb.tvdbId, get);
+  if (!looked.ok) return looked;
+  const seriesId = num(looked.hit.id);
+  if (!looked.inLibrary || !seriesId) return { ok: false, error: "not-found" };
+
+  const series = await sonarrSeriesById(settings.sonarr.url, settings.sonarr.apiKey, seriesId, get);
+  if (!series.ok) return series;
+  const chosen = requested.filter((n) => monitoredSeasons(series.hit).includes(n));
+  if (chosen.length === 0) return { ok: false, error: "missing-seasons" };
+
+  const headers = arrHeaders(settings.sonarr.apiKey);
+  const seriesUrl = joinUrl(settings.sonarr.url, `/api/v3/series/${seriesId}`);
+  const putRes = await put(seriesUrl, headers, {
+    ...series.hit,
+    seasons: dropMonitoredSeasons(series.hit, chosen),
+  });
+  const putStatus = classify(putRes);
+  if (putStatus !== "ok") return { ok: false, error: asArrError(putStatus) };
+  if (!deleteFiles) return { ok: true };
+
+  const remonitor = async (): Promise<ArrError | null> => {
+    const res = await put(seriesUrl, headers, series.hit);
+    const status = classify(res);
+    return status === "ok" ? null : asArrError(status);
+  };
+  const failDelete = async (error: ArrError): Promise<AcquireResult> => {
+    const restoreError = await remonitor();
+    return { ok: false, error: restoreError ?? error };
+  };
+
+  const files = await get(
+    joinUrl(settings.sonarr.url, `/api/v3/episodefile?seriesId=${seriesId}`),
+    headers,
+  );
+  const filesStatus = classify(files);
+  if (filesStatus !== "ok") return failDelete(asArrError(filesStatus));
+
+  for (const id of episodeFileIds("error" in files ? null : files.json, chosen)) {
+    const res = await del(joinUrl(settings.sonarr.url, `/api/v3/episodefile/${id}`), headers);
+    const gone = dropResult(res);
+    if (!gone.ok) return failDelete(gone.error);
+  }
+  return { ok: true };
 }

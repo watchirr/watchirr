@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
 import {
   arrAcquire,
@@ -14,8 +17,10 @@ import {
   seriesDefaultsReady,
   tvdbIdForTmdb,
 } from "./arr.ts";
+import { openStore } from "./auth.ts";
 import type { HttpDelete, HttpGet, HttpPost, HttpResult } from "./connect.ts";
 import type { HouseholdSettings } from "./settings.ts";
+import { addTitle, findItem, removeSeasons } from "./watchlist.ts";
 
 const settings: HouseholdSettings = {
   tmdbApiKey: "tmdb-key",
@@ -226,6 +231,183 @@ test("In Library TV expands seasons via PUT + SeriesSearch", async () => {
   );
   assert.equal(posts[0]?.url, "http://sonarr:8989/api/v3/command");
   assert.deepEqual(posts[0]?.body, { name: "SeriesSearch", seriesId: 42 });
+});
+
+test("Season Remove unmonitors chosen seasons, deletes only their files, and keeps the Item", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "watchirr-season-remove-"));
+  const store = await openStore({ DATA_DIR: dir });
+  const title = {
+    tmdbId: 1396,
+    kind: "tv" as const,
+    name: "Breaking Bad",
+    year: 2008,
+    posterPath: null,
+  };
+  const files = [
+    { id: 10, seasonNumber: 0 },
+    { id: 11, seasonNumber: 1 },
+    { id: 12, seasonNumber: 1 },
+    { id: 21, seasonNumber: 2 },
+    { id: 31, seasonNumber: 3 },
+  ];
+
+  function hit(monitored: number[], specials = false) {
+    const held = new Set(monitored);
+    return {
+      id: 42,
+      title: "Breaking Bad",
+      seasons: [0, 1, 2, 3].map((seasonNumber) => ({
+        seasonNumber,
+        monitored: seasonNumber === 0 ? specials : held.has(seasonNumber),
+      })),
+    };
+  }
+
+  function flags(body: Record<string, unknown>) {
+    return (body.seasons as { seasonNumber: number; monitored: boolean }[]).map((s) => ({
+      n: s.seasonNumber,
+      m: s.monitored,
+    }));
+  }
+
+  function world(series: ReturnType<typeof hit>, opts?: { putFail?: boolean; delFail?: boolean }) {
+    const puts: { url: string; body: Record<string, unknown> }[] = [];
+    const dels: string[] = [];
+    const gets: string[] = [];
+    const read = fakeGet({
+      "/tv/1396/external_ids": { status: 200, json: { tvdb_id: 81189 } },
+      "/api/v3/series/lookup": {
+        status: 200,
+        json: [{ title: "Breaking Bad", id: 42, tvdbId: 81189 }],
+      },
+      "/api/v3/series/42": { status: 200, json: series },
+      "/api/v3/episodefile": { status: 200, json: files },
+    });
+    const get: HttpGet = async (url, headers) => {
+      gets.push(url);
+      return read(url, headers);
+    };
+    const put: HttpPost = async (url, _h, body) => {
+      puts.push({ url, body: body as Record<string, unknown> });
+      if (opts?.putFail) return { status: 500, json: null };
+      return { status: 202, json: body };
+    };
+    const del: HttpDelete = async (url) => {
+      dels.push(url);
+      if (opts?.delFail) return { status: 500, json: null };
+      return { status: 200, json: {} };
+    };
+    return { puts, dels, gets, get, put, del };
+  }
+
+  async function stillThere() {
+    const item = await findItem(store, 1396, "tv");
+    assert.ok(item);
+    assert.equal(item.inLibrary, true);
+    assert.equal(item.title.name, "Breaking Bad");
+  }
+
+  try {
+    const added = await addTitle(store, title, {
+      coverage: async () => ({ ok: true, services: [] }),
+      inLibrary: async () => ({ ok: true, inLibrary: true }),
+    });
+    assert.equal(added.ok, true);
+
+    const emptyGets: string[] = [];
+    const empty = await removeSeasons(
+      store,
+      1396,
+      [],
+      true,
+      settings,
+      async (url) => {
+        emptyGets.push(url);
+        return { error: "unreachable" };
+      },
+    );
+    assert.deepEqual(empty, { ok: false, error: "missing-seasons" });
+    assert.deepEqual(emptyGets, []);
+    await stillThere();
+
+    const idle = world(hit([1, 2]));
+    const skipped = await removeSeasons(store, 1396, [3], true, settings, idle.get, idle.put, idle.del);
+    assert.deepEqual(skipped, { ok: false, error: "missing-seasons" });
+    assert.deepEqual(idle.puts, []);
+    assert.deepEqual(idle.dels, []);
+    await stillThere();
+
+    const keep = world(hit([1, 2], true));
+    const kept = await removeSeasons(store, 1396, [1], false, settings, keep.get, keep.put, keep.del);
+    assert.deepEqual(kept, { ok: true });
+    assert.equal(keep.puts[0]?.url, "http://sonarr:8989/api/v3/series/42");
+    assert.deepEqual(flags(keep.puts[0]!.body), [
+      { n: 0, m: true },
+      { n: 1, m: false },
+      { n: 2, m: true },
+      { n: 3, m: false },
+    ]);
+    assert.equal(keep.puts.length, 1);
+    assert.deepEqual(keep.dels, []);
+    assert.equal(keep.gets.some((url) => url.includes("/api/v3/episodefile")), false);
+    await stillThere();
+
+    const drop = world(hit([1, 2]));
+    const dropped = await removeSeasons(store, 1396, [1], true, settings, drop.get, drop.put, drop.del);
+    assert.deepEqual(dropped, { ok: true });
+    assert.deepEqual(flags(drop.puts[0]!.body), [
+      { n: 0, m: false },
+      { n: 1, m: false },
+      { n: 2, m: true },
+      { n: 3, m: false },
+    ]);
+    assert.deepEqual(drop.dels, [
+      "http://sonarr:8989/api/v3/episodefile/11",
+      "http://sonarr:8989/api/v3/episodefile/12",
+    ]);
+    await stillThere();
+
+    const last = world(hit([1]));
+    const lasted = await removeSeasons(store, 1396, [1], true, settings, last.get, last.put, last.del);
+    assert.deepEqual(lasted, { ok: true });
+    assert.deepEqual(flags(last.puts[0]!.body), [
+      { n: 0, m: false },
+      { n: 1, m: false },
+      { n: 2, m: false },
+      { n: 3, m: false },
+    ]);
+    assert.equal(last.puts.length, 1);
+    assert.deepEqual(last.dels, [
+      "http://sonarr:8989/api/v3/episodefile/11",
+      "http://sonarr:8989/api/v3/episodefile/12",
+    ]);
+    assert.equal(last.dels.some((url) => url.includes("/api/v3/series/")), false);
+    await stillThere();
+
+    const broken = world(hit([1, 2]), { delFail: true });
+    const failed = await removeSeasons(store, 1396, [1, 2], true, settings, broken.get, broken.put, broken.del);
+    assert.deepEqual(failed, { ok: false, error: "arr-failed" });
+    assert.deepEqual(broken.dels, ["http://sonarr:8989/api/v3/episodefile/11"]);
+    assert.equal(broken.puts.length, 2);
+    assert.deepEqual(flags(broken.puts[1]!.body), [
+      { n: 0, m: false },
+      { n: 1, m: true },
+      { n: 2, m: true },
+      { n: 3, m: false },
+    ]);
+    await stillThere();
+
+    const stuck = world(hit([1, 2]), { putFail: true });
+    const unmonitor = await removeSeasons(store, 1396, [1], true, settings, stuck.get, stuck.put, stuck.del);
+    assert.deepEqual(unmonitor, { ok: false, error: "arr-failed" });
+    assert.deepEqual(stuck.dels, []);
+    assert.equal(stuck.puts.length, 1);
+    assert.equal(stuck.gets.some((url) => url.includes("/api/v3/episodefile")), false);
+    await stillThere();
+  } finally {
+    await store.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("Acquire fails clearly when *arr defaults missing", async () => {

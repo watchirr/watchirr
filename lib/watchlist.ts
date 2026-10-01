@@ -1,5 +1,6 @@
-import type { AcquireFn, AcquireOpts, ArrError, DropFn, LibraryLookup } from "./arr.ts";
+import { removeSeriesSeasons, type AcquireFn, type AcquireOpts, type ArrError, type DropFn, type LibraryLookup } from "./arr.ts";
 import type { Store } from "./auth.ts";
+import { defaultDelete, defaultGet, defaultPut, type HttpDelete, type HttpGet, type HttpPut } from "./connect.ts";
 import type { JellyfinError, ProgressLookup } from "./jellyfin.ts";
 import type { HouseholdSettings } from "./settings.ts";
 import { num, str } from "./settings.ts";
@@ -317,6 +318,25 @@ export async function expandSeasons(
   const item = { ...existing, inLibrary: true, shouldAcquire: false };
   await saveItem(store, item);
   return { ok: true, item, acquired: true, existed: true };
+}
+
+/**
+ * Season Remove on a TV Item already In Library. The Item stays, even when nothing remains monitored.
+ * deleteFiles drops only the chosen seasons' episode files; keep-files unmonitors and leaves disk alone.
+ */
+export async function removeSeasons(
+  store: Store,
+  tmdbId: number,
+  seasons: number[],
+  deleteFiles: boolean,
+  settings: HouseholdSettings,
+  get: HttpGet = defaultGet,
+  put: HttpPut = defaultPut,
+  del: HttpDelete = defaultDelete,
+): Promise<{ ok: true } | { ok: false; error: ArrError }> {
+  const existing = await findItem(store, tmdbId, "tv");
+  if (!existing?.inLibrary) return { ok: false, error: "not-found" };
+  return removeSeriesSeasons(settings, tmdbId, seasons, deleteFiles, get, put, del);
 }
 
 /**
